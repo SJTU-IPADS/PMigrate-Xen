@@ -32,6 +32,15 @@
 #include <xen/keyhandler.h>
 #include <xen/softirq.h>
 
+#include <xen/migration_debug.h>
+/*
+ * classicsong
+ */
+#define dprintk(_f, _a...) \
+    if (p2m_debug == 1) printk(_f, ## _a)
+#define hprintk(_f, _a...) \
+    if (p2m_hint == 1) printk(_f, ## _a_
+
 #define atomic_read_ept_entry(__pepte)                              \
     ( (ept_entry_t) { .epte = atomic_read64(&(__pepte)->epte) } )
 #define atomic_write_ept_entry(__pepte, __epte)                     \
@@ -804,11 +813,46 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
                                          p2m_type_t ot, p2m_type_t nt)
 {
     struct domain *d = p2m->domain;
+
+    /*
+     * classicsong
+     */
+    cpumask_t cpumask = CPU_MASK_NONE;
+    struct vcpu *v;
+
     if ( ept_get_asr(d) == 0 )
         return;
 
     BUG_ON(p2m_is_grant(ot) || p2m_is_grant(nt));
     BUG_ON(ot != nt && (ot == p2m_mmio_direct || nt == p2m_mmio_direct));
+
+    /*
+     * classicsong
+     *
+     * use multiple cores to do this work
+     * the number of cores is decided by the pcpus current domain 
+     * is running
+     *
+     * 1. PCUP check, find all pcpus this domain can use to help enable dirty
+     * 2. dispatching jobs, use master and slave mode to do the job
+     */
+
+    /*
+     * 1. check pcpu number
+     */
+    for_each_vcpu( d, v )
+        cpus_or(cpumask, cpumask, v->cpu_affinity);
+
+    /*
+     * info each pcpu to get ready. the current pcpu is the master others are slave
+     */
+    cpu_clear(get_processor_id() ,cpumask);
+    dprintk("current processor id is %d\n", get_processor_id());
+    on_selected_cpus(&cpumask, multi_change_dirty_slave, d, 1);
+
+    /*
+     * current pcpu is the master
+     */
 
     ept_change_entry_type_page(_mfn(ept_get_asr(d)), ept_get_wl(d), ot, nt);
 
