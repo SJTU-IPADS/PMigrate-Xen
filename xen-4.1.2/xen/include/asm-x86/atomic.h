@@ -189,6 +189,27 @@ static inline int atomic_inc_and_test(atomic_t *v)
 }
 
 /**
+ * classicsong add 
+ *
+ * atomic_inc_and_return - increment and read 
+ * @v: pointer of type atomic_t
+ * 
+ * Atomically increments @v by 1
+ * and returns the increased value 
+ */ 
+static inline int atomic_return_and_inc(atomic_t *v)
+{
+    int i = 1;
+
+    asm volatile (
+        "lock; xaddl %0, %1"
+        : "+r" (i), "+m" (*(volatile int *)&v->counter)
+        :
+        : "memory" );
+    return i;
+}
+
+/**
  * atomic_add_negative - add and test if negative
  * @v: pointer of type atomic_t
  * @i: integer value to add
