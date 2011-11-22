@@ -862,12 +862,12 @@ static void multi_change_dirty_slave(void *data) {
     }
 }
 
-static void multi_change_dirty_master(struct domain *d, struct mc_migr_sync *migration_sync, 
-                                      mfn_t ept_page_mfn, int ept_page_level) {
+static void multi_change_dirty_master(struct mc_migr_sync *migration_sync, mfn_t ept_page_mfn, 
+                                      int ept_page_level, p2m_type_t ot, p2m_type_t nt) {
     /*
      * now we start the master
      */
-    ept_entry_t *epte = map_domain_page(mfn_x(ept_page_mfn));
+    ept_entry_t e, *epte = map_domain_page(mfn_x(ept_page_mfn));
 
     for ( int i = 0; i < EPT_PAGETABLE_ENTRIES; )
     {
@@ -875,9 +875,23 @@ static void multi_change_dirty_master(struct domain *d, struct mc_migr_sync *mig
             continue;
 
         if ( (ept_page_level > 1) && !is_epte_superpage(epte + i) ) {
-            multi_change_dirty_master(d, migration_sync, _mfn(epte[i].mfn),
-                                      ept_page_level - 1);
+            dprintk("master in Level %d\n", ept_page_level);
+            multi_change_dirty_master(migration_sync, _mfn(epte[i].mfn),
+                                      ept_page_level - 1, ot, nt);
             i ++;
+        }
+        /*
+         * git superpage, handle it
+         */
+        else if (is_epte_superpage(epte + i)) {
+            e = atomic_read_ept_entry(&epte[i]);
+            if ( e.sa_p2mt != ot )
+                continue;
+
+            e.sa_p2mt = nt;
+            ept_p2m_type_to_flags(&e, nt, e.access);
+            atomic_write_ept_entry(&epte[i], e);
+            dprintk("[WARING] in super page\n");
         }
         else
         {
@@ -940,11 +954,12 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
     /*
      * info each pcpu to get ready. the current pcpu is the master others are slave
      */
-    cpu_clear(get_processor_id() ,cpumask);
-    dprintk("current processor id is %d\n", get_processor_id());
+    cpu_clear(get_processor_id(), cpumask);
+    dprintk("current processor id is %d, max pages is %x\n", get_processor_id(), d->max_pages);
     max_batchs = d->max_pages / MC_DEFAULT_BATCH_SIZE;
-    migration_sync = (struct mc_migr_sync *)xmalloc_bytes(sizeof(atomic_t) * 2 +
-                                                          sizeof(struct sync_entry) * max_batchs);
+    migration_sync = (struct mc_migr_sync *)_xmalloc(sizeof(atomic_t) * 2 +
+                                                     sizeof(struct sync_entry) * max_batchs,
+                                                     __alignof__(struct mc_migr_sync));
     atomic_set(&migration_sync->consume_size, 0);
     atomic_set(&migration_sync->current_size, 0);
 
@@ -961,7 +976,7 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
     /*
      * current pcpu is the master
      */
-    multi_change_dirty_master(d, migration_sync, _mfn(ept_get_asr(d)), ept_get_wl(d));
+    multi_change_dirty_master(migration_sync, _mfn(ept_get_asr(d)), ept_get_wl(d), ot, nt);
 
     /*
      * current pcpu because the slave
