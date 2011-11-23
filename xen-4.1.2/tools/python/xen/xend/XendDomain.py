@@ -1331,7 +1331,7 @@ class XendDomain:
 
         return val       
 
-    def domain_migrate(self, domid, dst, live=False, port=0, node=-1, ssl=None,\
+    def domain_migrate(self, domid, dst, dst_ips, live=False, port=0, node=-1, ssl=None,\
                        chs=False):
         """Start domain migration.
         
@@ -1368,7 +1368,12 @@ class XendDomain:
             raise XendError("Domain is not a managed domain")
 
         """ The following call may raise a XendError exception """
-        dominfo.testMigrateDevices(True, dst)
+		# Single ip
+		if dst_ips.empty():
+			dominfo.testMigrateDevices(True, dst)
+		# Multi ip
+		else:
+			dominfo.testMigrateDevices(True, dst_ips[0])
 
         if live:
             """ Make sure there's memory free for enabling shadow mode """
@@ -1382,7 +1387,7 @@ class XendDomain:
             if ssl:
                 self._domain_migrate_by_ssl(dominfo, dst, live, port, node)
             else:
-                self._domain_migrate(dominfo, dst, live, port, node)
+                self._domain_migrate(dominfo, dst, dst_ips, live, port, node)
         except:
             dominfo.setChangeHomeServer(None)
             raise
@@ -1450,40 +1455,70 @@ class XendDomain:
         os.close(p2cread)
         os.close(p2cwrite)
 
-    def _domain_migrate(self, dominfo, dst, live, port, node):
+    def _domain_migrate(self, dominfo, dst, dst_ips,live, port, node):
+		socks = []
+		socks_fileno =  []
+
         if port == 0:
             port = xoptions.get_xend_relocation_port()
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            # When connecting to our ssl enabled relocation server using a
-            # plain socket, send will success but recv will block. Add a
-            # 30 seconds timeout to raise a socket.timeout exception to
-            # inform the client.
-            sock.settimeout(30.0)
-            sock.connect((dst, port))
-            sock.send("receive\n")
-            sock.recv(80)
-            sock.settimeout(None)
+			if dst_ips.empty():
+				sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+			# When connecting to our ssl enabled relocation server using a
+			# plain socket, send will success but recv will block. Add a
+			# 30 seconds timeout to raise a socket.timeout exception to
+			# inform the client.
+				sock.settimeout(30.0)
+				sock.connect((dst, port))
+				sock.send("receive\n")
+				sock.recv(80)
+				sock.settimeout(None)
+			else:
+				for d in dst_ips:
+					sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+					sock.settimeout(30.0)
+					sock.connect((d, port))
+					sock.send("receive\n")
+					sock.recv(80)
+					sock.settimeout(None)
+					socks.append(sock)
         except socket.error, err:
             raise XendError("can't connect: %s" % err)
 
+		if not socks.empty():
+			for s in socks:
+				socks_fileno.append(s.fileno())
+
         try:
             try:
-                XendCheckpoint.save(sock.fileno(), dominfo, True, live,
+                XendCheckpoint.save(sock.fileno(), socks_fileno, dominfo, True, live,
                                     dst, node=node,sock=sock)
             except Exception, ex:
                 m_dsterr = None
                 try:
-                    sock.settimeout(3.0)
-                    dsterr = sock.recv(1024)
-                    sock.settimeout(None)
-                    if dsterr:
-                        # See send_error@relocate.py. If an error occurred
-                        # in a destination side, an error message with the
-                        # following form is returned from the destination
-                        # side.
-                        m_dsterr = \
-                            re.match(r"^\(err\s\(type\s(.+)\)\s\(value\s'(.+)'\)\)", dsterr)
+					if socks.empty():
+						sock.settimeout(3.0)
+						dsterr = sock.recv(1024)
+						sock.settimeout(None)
+						if dsterr:
+							# See send_error@relocate.py. If an error occurred
+							# in a destination side, an error message with the
+							# following form is returned from the destination
+							# side.
+							m_dsterr = \
+								re.match(r"^\(err\s\(type\s(.+)\)\s\(value\s'(.+)'\)\)", dsterr)
+					else:
+						for s in socks:
+							s.settimeout(3.0)
+							dsterr = s.recv(1024)
+							s.settimeout(None)
+							if dsterr:
+								# See send_error@relocate.py. If an error occurred
+								# in a destination side, an error message with the
+								# following form is returned from the destination
+								# side.
+								m_dsterr = \
+										re.match(r"^\(err\s\(type\s(.+)\)\s\(value\s'(.+)'\)\)", dsterr)
                 except:
                     # Probably socket.timeout exception occurred.
                     # Ignore the exception because it has nothing to do with
@@ -1496,14 +1531,22 @@ class XendDomain:
         finally:
             if not live:
                 try:
-                    sock.shutdown(2)
+					if socks.empty():
+						sock.shutdown(2)
+					else:
+						for s in socks:
+							s.shutdown(2)
                 except:
                     # Probably the socket is already disconnected by sock.close
                     # in the destination side.
                     # Ignore the exception because it has nothing to do with
                     # an exception of XendCheckpoint.save.
                     pass
-                sock.close()
+				if socks.empty():
+					sock.close()
+				else:
+					for s in socks:
+						s.close();
 
     def domain_save(self, domid, dst, checkpoint=False):
         """Start saving a domain to file.
