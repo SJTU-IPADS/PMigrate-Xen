@@ -1,6 +1,7 @@
 /*
  * multi-core queue support
  */
+#include <stdio.h>
 #include <malloc.h>
 
 #include "mc_queue.h"

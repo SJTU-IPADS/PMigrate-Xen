@@ -968,11 +968,13 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
     slave_data->ot = ot;
     slave_data->nt = nt;
 
+    dprintk("start slave\n");
     /*
      * do not wait for slaves
      */
-    on_selected_cpus(&cpumask, multi_change_dirty_slave, (void *)slave_data, 0);
+    //on_selected_cpus(&cpumask, multi_change_dirty_slave, (void *)slave_data, 0);
 
+    dprintk("start master\n");
     /*
      * current pcpu is the master
      */
@@ -981,7 +983,7 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
     /*
      * current pcpu because the slave
      */
-    multi_change_dirty_slave(&slave_data);
+    multi_change_dirty_slave(slave_data);
 
     xfree(migration_sync);
 #else
