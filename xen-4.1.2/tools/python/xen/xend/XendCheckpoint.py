@@ -1,4 +1,4 @@
-# Copyright (C) 2005 Christian Limpach <Christian.Limpach@cl.cam.ac.uk>
+socks_fileno, # Copyright (C) 2005 Christian Limpach <Christian.Limpach@cl.cam.ac.uk>
 # Copyright (C) 2005 XenSource Ltd
 
 # This file is subject to the terms and conditions of the GNU General
@@ -65,8 +65,12 @@ def insert_after(list, pred, value):
     return
 
 
-def save(fd, dominfo, network, live, dst, checkpoint=False, node=-1,sock=None):
+def save(fd, fds, dominfo, network, live, dst, checkpoint=False, node=-1,sock=None):
     from xen.xend import XendDomain
+	# Multi ip flag
+	is_multi = False
+	if not fds.empty():
+		is_multi = True
 
     try:
         if not os.path.isdir("/var/lib/xen"):
@@ -75,7 +79,11 @@ def save(fd, dominfo, network, live, dst, checkpoint=False, node=-1,sock=None):
         log.exception("Can't create directory '/var/lib/xen'")
         raise XendError("Can't create directory '/var/lib/xen'")
 
-    write_exact(fd, SIGNATURE, "could not write guest state file: signature")
+	if is_multi:
+		for d in fds:
+			write_exact(d, SIGNATURE, "could not write guest state file: signature")
+	else:
+		write_exact(fd, SIGNATURE, "could not write guest state file: signature")
 
     sxprep = dominfo.sxpr()
 
@@ -105,9 +113,14 @@ def save(fd, dominfo, network, live, dst, checkpoint=False, node=-1,sock=None):
     try:
         dominfo.migrateDevices(network, dst, DEV_MIGRATE_STEP1, domain_name)
 
-        write_exact(fd, pack("!i", len(config)),
-                    "could not write guest state file: config len")
-        write_exact(fd, config, "could not write guest state file: config")
+		if is_multi:
+			write_exact(fds[0], pack("!i", len(config)),
+					"could not write guest state file: config len")
+			write_exact(fds[0], config, "could not write guest state file: config")
+		else:
+			write_exact(fd, pack("!i", len(config)),
+					"could not write guest state file: config len")
+			write_exact(fd, config, "could not write guest state file: config")
 
         image_cfg = dominfo.info.get('image', {})
         hvm = dominfo.info.is_hvm()
@@ -118,9 +131,17 @@ def save(fd, dominfo, network, live, dst, checkpoint=False, node=-1,sock=None):
         # enabled. Passing "0" simply uses the defaults compiled into
         # libxenguest; see the comments and/or code in xc_linux_save() for
         # more information.
-        cmd = [xen.util.auxbin.pathTo(XC_SAVE), str(fd),
-               str(dominfo.getDomid()), "0", "0", 
-               str(int(live) | (int(hvm) << 2)) ]
+		cmd = None
+		if is_multi:
+			cmd = [xen.util.auxbin.pathTo(XC_SAVE)]
+			cmd.append(str(fds.size()))
+			for f in fds:
+				cmd.append(str(f))
+			cmd.extend([ str(dominfo.getDomid()), "0", "0", str(int(live) | (int(hvm) << 2)) ])
+		else:
+			cmd = [xen.util.auxbin.pathTo(XC_SAVE), str(fd),
+					str(dominfo.getDomid()), "0", "0", 
+					str(int(live) | (int(hvm) << 2)) ]
         log.debug("[xc_save]: %s", string.join(cmd))
 
         def saveInputHandler(line, tochild):
@@ -143,7 +164,10 @@ def save(fd, dominfo, network, live, dst, checkpoint=False, node=-1,sock=None):
                 tochild.flush()
                 log.debug('Written done')
 
-        forkHelper(cmd, fd, saveInputHandler, False)
+		if is_multi:
+			forkHelper(cmd, fds, saveInputHandler, False)
+		else:
+			forkHelper(cmd, fd, saveInputHandler, False)
 
         # put qemu device model state
         if os.path.exists("/var/lib/xen/qemu-save.%d" % dominfo.getDomid()):
@@ -375,7 +399,11 @@ class RestoreInputHandler:
 
 
 def forkHelper(cmd, fd, inputHandler, closeToChild):
-    child = xPopen3(cmd, True, -1, [fd])
+	child = None
+	if type(fd) == type([]):
+		child = xPopen3(cmd, True, -1, fd)
+	else:
+		child = xPopen3(cmd, True, -1, [fd])
 
     if closeToChild:
         child.tochild.close()

@@ -62,12 +62,22 @@ def main(argv):
     opts = gopts
     opts.reset()
     args = opts.parse(argv)
+	
+	# Multi thead migration
+	# SJC
+	dst_ips = []
     
-    if len(args) != 2:
+    if len(args) <= 2:
         raise OptionError('Invalid number of arguments')
 
     dom = args[0]
     dst = args[1]
+
+	if len(args) == 3:
+		multi_config = args[2]
+		f = open(multi_config);
+		for l in f.readlines():
+			dst_ips.append(l)
 
     if serverType == SERVER_XEN_API:
         vm_ref = get_single_vm(dom)
@@ -80,7 +90,7 @@ def main(argv):
         server.xenapi.VM.migrate(vm_ref, dst, bool(opts.vals.live),
                                  other_config)
     else:
-        server.xend.domain.migrate(dom, dst, opts.vals.live,
+        server.xend.domain.migrate(dom, dst, dst_ips, opts.vals.live,
                                    opts.vals.port,
                                    opts.vals.node,
                                    opts.vals.ssl,
