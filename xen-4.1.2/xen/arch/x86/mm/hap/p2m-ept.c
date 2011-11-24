@@ -824,8 +824,6 @@ static void multi_change_dirty_slave(void *data) {
     ept_entry_t e, *epte;
     int start_entry_i, len;
 
-    dprintk("consume index is %d, current index is %d\n", consume_index, current_index);
-    return;
     /*
      * There exist a race in reading current index and fetch the sync_entry
      */
@@ -982,15 +980,11 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
      */
     //on_selected_cpus(&cpumask, multi_change_dirty_slave, (void *)slave_data, 0);
 
-    dprintk("start slave test %p:%p, max batchs %d\n", slave_data->migration_sync, migration_sync,
-            max_batchs);
     /*
      * current pcpu is the master
      */
     multi_change_dirty_master(migration_sync, _mfn(ept_get_asr(d)), ept_get_wl(d), ot, nt);
     
-    dprintk("start slave test %p:%p, %p, %p\n", slave_data->migration_sync, migration_sync,
-            slave_data, &migration_sync->consume_size);
     /*
      * current pcpu because the slave
      */
