@@ -965,7 +965,7 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
      */
     cpu_clear(get_processor_id(), cpumask);
     dprintk("current processor id is %d, max pages is %x\n", get_processor_id(), d->max_pages);
-    max_batchs = 2 * d->max_pages / MC_DEFAULT_BATCH_SIZE;
+    max_batchs = 2 * d->max_pages * PAGE_SIZE / MC_DEFAULT_BATCH_SIZE;
     migration_sync = (struct mc_migr_sync *)_xmalloc(sizeof(atomic_t) * 2 +
                                                      sizeof(struct sync_entry) * max_batchs,
                                                      __alignof__(struct mc_migr_sync));
@@ -982,6 +982,8 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
      */
     //on_selected_cpus(&cpumask, multi_change_dirty_slave, (void *)slave_data, 0);
 
+    dprintk("start slave test %p:%p, max batchs %d\n", slave_data->migration_sync, migration_sync,
+            max_batchs);
     /*
      * current pcpu is the master
      */
