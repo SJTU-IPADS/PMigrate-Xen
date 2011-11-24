@@ -824,7 +824,6 @@ static void multi_change_dirty_slave(void *data) {
     ept_entry_t e, *epte;
     int start_entry_i, len;
 
-    return;
     /*
      * There exist a race in reading current index and fetch the sync_entry
      */
@@ -870,7 +869,6 @@ static void multi_change_dirty_master(struct mc_migr_sync *migration_sync, mfn_t
      */
     ept_entry_t e, *epte = map_domain_page(mfn_x(ept_page_mfn));
 
-    return;
     for ( int i = 0; i < EPT_PAGETABLE_ENTRIES; )
     {
         if ( !is_epte_present(epte + i) ) {
@@ -905,13 +903,16 @@ static void multi_change_dirty_master(struct mc_migr_sync *migration_sync, mfn_t
              */
             int entry_index = atomic_read(&migration_sync->current_size);
             struct sync_entry *current_entry = &migration_sync->entry_list[entry_index];
+            int len;
 
+            len = (i + MC_DEFAULT_BATCH_L1_LENGTH) < EPT_PAGETABLE_ENTRIES ? 
+                MC_DEFAULT_BATCH_L1_LENGTH : EPT_PAGETABLE_ENTRIES - i;
             current_entry->ept_page_mfn = ept_page_mfn;
             current_entry->start = i;
-            current_entry->len = MC_DEFAULT_BATCH_L1_LENGTH;
+            current_entry->len = len;
             atomic_inc(&migration_sync->current_size);
 
-            i += MC_DEFAULT_BATCH_L1_LENGTH;
+            i += len;
         }
     }
 
@@ -961,7 +962,7 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
      */
     cpu_clear(get_processor_id(), cpumask);
     dprintk("current processor id is %d, max pages is %x\n", get_processor_id(), d->max_pages);
-    max_batchs = d->max_pages / MC_DEFAULT_BATCH_SIZE;
+    max_batchs = 2 * d->max_pages / MC_DEFAULT_BATCH_SIZE;
     migration_sync = (struct mc_migr_sync *)_xmalloc(sizeof(atomic_t) * 2 +
                                                      sizeof(struct sync_entry) * max_batchs,
                                                      __alignof__(struct mc_migr_sync));
@@ -973,13 +974,12 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
     slave_data->ot = ot;
     slave_data->nt = nt;
 
-    dprintk("start slave\n");
     /*
      * do not wait for slaves
      */
     //on_selected_cpus(&cpumask, multi_change_dirty_slave, (void *)slave_data, 0);
 
-    dprintk("start master\n");
+    dprintk("start single test master and slave\n");
     /*
      * current pcpu is the master
      */
@@ -991,7 +991,7 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
     multi_change_dirty_slave(slave_data);
 
     xfree(migration_sync);
-    //#else
+#else
     ept_change_entry_type_page(_mfn(ept_get_asr(d)), ept_get_wl(d), ot, nt);
 #endif
     ept_sync_domain(d);
