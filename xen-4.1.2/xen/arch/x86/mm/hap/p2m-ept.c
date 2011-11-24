@@ -896,7 +896,7 @@ static void multi_change_dirty_master(struct mc_migr_sync *migration_sync, mfn_t
             ept_p2m_type_to_flags(&e, nt, e.access);
             atomic_write_ept_entry(&epte[i], e);
             i ++;
-            dprintk("[WARING] in super page in level %d\n", ept_page_level);
+            //dprintk("[WARING] in super page in level %d\n", ept_page_level);
         }
         else
         {
@@ -907,6 +907,7 @@ static void multi_change_dirty_master(struct mc_migr_sync *migration_sync, mfn_t
             struct sync_entry *current_entry = &migration_sync->entry_list[entry_index];
             int len;
 
+            dprintk("dispatch job %d\n", i);
             len = (i + MC_DEFAULT_BATCH_L1_LENGTH) < EPT_PAGETABLE_ENTRIES ? 
                 MC_DEFAULT_BATCH_L1_LENGTH : EPT_PAGETABLE_ENTRIES - i;
             current_entry->ept_page_mfn = ept_page_mfn;
@@ -992,8 +993,8 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
      */
     multi_change_dirty_slave(slave_data);
 
-    xfree(migration_sync);
     xfree(slave_data);
+    xfree(migration_sync);
 #else
     ept_change_entry_type_page(_mfn(ept_get_asr(d)), ept_get_wl(d), ot, nt);
 #endif
