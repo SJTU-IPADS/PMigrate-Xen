@@ -824,6 +824,8 @@ static void multi_change_dirty_slave(void *data) {
     ept_entry_t e, *epte;
     int start_entry_i, len;
 
+    dprintk("consume index is %d, current index is %d\n", consume_index, current_index);
+    return;
     /*
      * There exist a race in reading current index and fetch the sync_entry
      */
