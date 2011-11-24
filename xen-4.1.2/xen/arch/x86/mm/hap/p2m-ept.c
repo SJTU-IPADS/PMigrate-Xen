@@ -824,6 +824,7 @@ static void multi_change_dirty_slave(void *data) {
     ept_entry_t e, *epte;
     int start_entry_i, len;
 
+    return;
     /*
      * There exist a race in reading current index and fetch the sync_entry
      */
@@ -869,10 +870,13 @@ static void multi_change_dirty_master(struct mc_migr_sync *migration_sync, mfn_t
      */
     ept_entry_t e, *epte = map_domain_page(mfn_x(ept_page_mfn));
 
+    return;
     for ( int i = 0; i < EPT_PAGETABLE_ENTRIES; )
     {
-        if ( !is_epte_present(epte + i) )
+        if ( !is_epte_present(epte + i) ) {
+            i ++;
             continue;
+        }
 
         if ( (ept_page_level > 1) && !is_epte_superpage(epte + i) ) {
             dprintk("master in Level %d\n", ept_page_level);
@@ -891,6 +895,7 @@ static void multi_change_dirty_master(struct mc_migr_sync *migration_sync, mfn_t
             e.sa_p2mt = nt;
             ept_p2m_type_to_flags(&e, nt, e.access);
             atomic_write_ept_entry(&epte[i], e);
+            i ++;
             dprintk("[WARING] in super page\n");
         }
         else
@@ -979,14 +984,14 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
      * current pcpu is the master
      */
     multi_change_dirty_master(migration_sync, _mfn(ept_get_asr(d)), ept_get_wl(d), ot, nt);
-
+    
     /*
      * current pcpu because the slave
      */
     multi_change_dirty_slave(slave_data);
 
     xfree(migration_sync);
-#else
+    //#else
     ept_change_entry_type_page(_mfn(ept_get_asr(d)), ept_get_wl(d), ot, nt);
 #endif
     ept_sync_domain(d);
