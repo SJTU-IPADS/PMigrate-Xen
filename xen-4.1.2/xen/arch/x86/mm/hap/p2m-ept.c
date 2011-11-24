@@ -828,7 +828,8 @@ static void multi_change_dirty_slave(void *data) {
      * There exist a race in reading current index and fetch the sync_entry
      */
     while (consume_index < current_index) {
-        dprintk("consume index is %d, current index is %d\n", consume_index, current_index);
+        dprintk("consume index is %d, current index is %d, vcpu: %d\n", 
+                consume_index, current_index, get_processor_id());
 
         entry = &sync_info->entry_list[consume_index];
         epte = map_domain_page(mfn_x(entry->ept_page_mfn));
@@ -877,7 +878,6 @@ static void multi_change_dirty_master(struct mc_migr_sync *migration_sync, mfn_t
         }
 
         if ( ept_page_level > 1) {
-            dprintk("master in Level %d\n", ept_page_level);
             multi_change_dirty_master(migration_sync, _mfn(epte[i].mfn),
                                       ept_page_level - 1, ot, nt);
             i ++;
