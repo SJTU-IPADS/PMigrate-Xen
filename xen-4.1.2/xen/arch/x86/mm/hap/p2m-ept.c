@@ -867,7 +867,7 @@ static void multi_change_dirty_master(struct mc_migr_sync *migration_sync, mfn_t
     /*
      * now we start the master
      */
-    ept_entry_t e, *epte = map_domain_page(mfn_x(ept_page_mfn));
+    ept_entry_t *epte = map_domain_page(mfn_x(ept_page_mfn));
 
     for ( int i = 0; i < EPT_PAGETABLE_ENTRIES; )
     {
@@ -876,25 +876,11 @@ static void multi_change_dirty_master(struct mc_migr_sync *migration_sync, mfn_t
             continue;
         }
 
-        if ( (ept_page_level > 1) && !is_epte_superpage(epte + i) ) {
+        if ( ept_page_level > 1) {
             dprintk("master in Level %d\n", ept_page_level);
             multi_change_dirty_master(migration_sync, _mfn(epte[i].mfn),
                                       ept_page_level - 1, ot, nt);
             i ++;
-        }
-        /*
-         * git superpage, handle it
-         */
-        else if (is_epte_superpage(epte + i)) {
-            e = atomic_read_ept_entry(&epte[i]);
-            if ( e.sa_p2mt != ot )
-                continue;
-
-            e.sa_p2mt = nt;
-            ept_p2m_type_to_flags(&e, nt, e.access);
-            atomic_write_ept_entry(&epte[i], e);
-            i ++;
-            //dprintk("[WARING] in super page in level %d\n", ept_page_level);
         }
         else
         {
@@ -978,7 +964,7 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
     /*
      * do not wait for slaves
      */
-    //on_selected_cpus(&cpumask, multi_change_dirty_slave, (void *)slave_data, 0);
+    on_selected_cpus(&cpumask, multi_change_dirty_slave, (void *)slave_data, 0);
 
     /*
      * current pcpu is the master

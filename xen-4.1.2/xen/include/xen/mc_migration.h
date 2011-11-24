@@ -8,9 +8,9 @@
 
 /*
  * batch size in multi-core migration
- * default value is 32M
+ * default value is 128M
  */
-#define MC_DEFAULT_BATCH_SIZE (64 * 1024 * 1024)
+#define MC_DEFAULT_BATCH_SIZE (128 * 1024 * 1024)
 #define MC_DEFAULT_BATCH_L1_LENGTH (MC_DEFAULT_BATCH_SIZE / (EPT_PAGETABLE_ENTRIES * 4 * 1024))
 
 struct sync_entry {
