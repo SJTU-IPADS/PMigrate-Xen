@@ -11,6 +11,9 @@ struct sync_entry {
     /*
      * fill it up with necessary variables
      */
+    int last_iter;            /* boolean if last iter */ 
+    int iter; 		      /* iter number */	
+    int start_pfn;	      /* batch mem page start number */
     int len;                  /* length of a batch */
 };
 
