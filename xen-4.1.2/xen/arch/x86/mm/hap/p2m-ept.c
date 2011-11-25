@@ -818,7 +818,7 @@ static void ept_change_entry_type_page(mfn_t ept_page_mfn, int ept_page_level,
 static void multi_change_dirty_slave(void *data) {
     struct mc_slave_data *slave_data = (struct mc_slave_data *)data;
     struct mc_migr_sync *sync_info = slave_data->migration_sync;
-    int consume_index = atomic_return_and_inc(&sync_info->consume_size);
+    int consume_index = atomic_read(&sync_info->consume_size);
     int current_index = atomic_read(&sync_info->current_size);
     struct sync_entry *entry = NULL;
     ept_entry_t e, *epte;
@@ -830,49 +830,60 @@ static void multi_change_dirty_slave(void *data) {
      * There exist a race in reading current index and fetch the sync_entry
      */
     while (consume_index < current_index) {
-        dprintk("consume index is %d, current index is %d, vcpu: %d\n", 
-                consume_index, current_index, get_processor_id());
+        /*
+         * increase consume_index by 1
+         * if failed, the current index is processed by other slaves
+         */
+        if (__cmpxchg(&(sync_info->consume_size.counter), consume_index, 
+                      consume_index+1, sizeof(int)) == consume_index) {
+            dprintk("consume index is %d, current index is %d, vcpu: %d\n", 
+                    consume_index, current_index, get_processor_id());
 
-        entry = &sync_info->entry_list[consume_index];
-        epte = map_domain_page(mfn_x(entry->ept_page_mfn));
-        start_entry_i = entry->start;
-        len = entry->len;
+            entry = &sync_info->entry_list[consume_index];
+            epte = map_domain_page(mfn_x(entry->ept_page_mfn));
+            start_entry_i = entry->start;
+            len = entry->len;
 
-        for ( int i = start_entry_i; i < start_entry_i + len; i ++ ) {
-            if ( !is_epte_present(epte + i))
-                continue;
-
-            /*
-             * The current page level is l1
-             */
-            if (!is_epte_superpage(epte + i)) 
-                ept_change_entry_type_page(_mfn(epte[i].mfn),
-                                           0, slave_data->ot, slave_data->nt);
-            else {
-                e = atomic_read_ept_entry(&epte[i]);
-                if ( e.sa_p2mt != slave_data->ot )
+            for ( int i = start_entry_i; i < start_entry_i + len; i ++ ) {
+                if ( !is_epte_present(epte + i))
                     continue;
 
-                e.sa_p2mt = slave_data->nt;
-                ept_p2m_type_to_flags(&e, slave_data->nt, e.access);
-                atomic_write_ept_entry(&epte[i], e);
+                /*
+                 * The current page level is l1
+                 */
+                if (!is_epte_superpage(epte + i)) 
+                    ept_change_entry_type_page(_mfn(epte[i].mfn),
+                                               0, slave_data->ot, slave_data->nt);
+                else {
+                    e = atomic_read_ept_entry(&epte[i]);
+                    if ( e.sa_p2mt != slave_data->ot )
+                        continue;
+
+                    e.sa_p2mt = slave_data->nt;
+                    ept_p2m_type_to_flags(&e, slave_data->nt, e.access);
+                    atomic_write_ept_entry(&epte[i], e);
+                }
             }
+
+            unmap_domain_page(epte);
         }
 
-        unmap_domain_page(epte);
-        consume_index = atomic_return_and_inc(&sync_info->consume_size);
+        consume_index = atomic_read(&sync_info->consume_size);
         current_index = atomic_read(&sync_info->current_size);
     }
 
     dprintk("slave return %d\n", get_processor_id());
+    cpu_set(get_processor_id(), slave_data->slave_cpumask);
 }
 
 static void multi_change_dirty_master(struct mc_migr_sync *migration_sync, mfn_t ept_page_mfn, 
-                                      int ept_page_level, p2m_type_t ot, p2m_type_t nt) {
+                                      int ept_page_level, p2m_type_t ot, 
+                                      p2m_type_t nt, cpumask_t cpumask, 
+                                      struct mc_slave_data *slave_data) {
     /*
      * now we start the master
      */
-    ept_entry_t *epte = map_domain_page(mfn_x(ept_page_mfn));
+    ept_entry_t e, *epte = map_domain_page(mfn_x(ept_page_mfn));
 
     for ( int i = 0; i < EPT_PAGETABLE_ENTRIES; )
     {
@@ -881,10 +892,45 @@ static void multi_change_dirty_master(struct mc_migr_sync *migration_sync, mfn_t
             continue;
         }
 
-        if ( ept_page_level > 1) {
-            multi_change_dirty_master(migration_sync, _mfn(epte[i].mfn),
-                                      ept_page_level - 1, ot, nt);
-            i ++;
+        if ( ept_page_level > 1 ) {
+            if (!is_epte_superpage(epte + i)) {
+                int consume_index;
+                int current_index;
+
+                multi_change_dirty_master(migration_sync, _mfn(epte[i].mfn),
+                                          ept_page_level - 1, ot, nt, cpumask, slave_data);
+
+                if (!cpus_empty(slave_data->slave_cpumask)) {
+                    consume_index = atomic_read(&migration_sync->consume_size);
+                    current_index = atomic_read(&migration_sync->current_size);
+                    
+                    if (current_index - consume_index >= SLAVE_TRIGGER_THRESHOLD) {
+                        cpumask_t target;
+
+                        /*
+                         * do not wait for slaves
+                         */
+                        cpus_xor(target, slave_data->slave_cpumask, cpumask);
+                        cpus_clear(slave_data->slave_cpumask);
+                        on_selected_cpus(&target, multi_change_dirty_slave, (void *)slave_data, 0);
+                    }
+                }
+                i ++;
+            }
+            else if (is_epte_superpage(epte + i)) {
+                e = atomic_read_ept_entry(&epte[i]);
+                if ( e.sa_p2mt != ot ) {
+                    i++;
+                    continue;
+                }
+
+                e.sa_p2mt = nt;
+                ept_p2m_type_to_flags(&e, nt, e.access);
+                atomic_write_ept_entry(&epte[i], e);
+
+                printk("WARNING handle superpage level %d\n", ept_page_level);
+                i++;
+            }
         }
         else
         {
@@ -959,21 +1005,20 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
                                                      __alignof__(struct mc_migr_sync));
     atomic_set(&migration_sync->consume_size, 0);
     atomic_set(&migration_sync->current_size, 0);
+    migration_sync->end = 0;
 
     slave_data = xmalloc(struct mc_slave_data);
     slave_data->migration_sync = migration_sync;
+    cpus_clear(slave_data->slave_cpumask);
+
     slave_data->ot = ot;
     slave_data->nt = nt;
 
     /*
-     * do not wait for slaves
-     */
-    on_selected_cpus(&cpumask, multi_change_dirty_slave, (void *)slave_data, 0);
-
-    /*
      * current pcpu is the master
      */
-    multi_change_dirty_master(migration_sync, _mfn(ept_get_asr(d)), ept_get_wl(d), ot, nt);
+    multi_change_dirty_master(migration_sync, _mfn(ept_get_asr(d)), ept_get_wl(d), 
+                              ot, nt, cpumask, slave_data);
     
     /*
      * current pcpu because the slave
