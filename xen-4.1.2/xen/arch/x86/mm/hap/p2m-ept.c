@@ -825,7 +825,7 @@ static void multi_change_dirty_slave(void *data) {
     int start_entry_i, len;
 
     dprintk("slave in cpu %d\n", get_processor_id());
-
+    atomic_inc(&slave_data->slave_cnt);
     /*
      * There exist a race in reading current index and fetch the sync_entry
      */
@@ -873,6 +873,7 @@ static void multi_change_dirty_slave(void *data) {
     }
 
     dprintk("slave return %d\n", get_processor_id());
+    atomic_dec(&slave_data->slave_cnt);
     cpu_set(get_processor_id(), slave_data->slave_cpumask);
 }
 
@@ -1014,6 +1015,7 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
 
     slave_data->ot = ot;
     slave_data->nt = nt;
+    atomic_set(&slave_data->slave_cnt, 0);
 
     /*
      * current pcpu is the master
@@ -1025,7 +1027,9 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
      * current pcpu because the slave
      */
     multi_change_dirty_slave(slave_data);
-    while (!cpus_equal(cpumask, slave_data->slave_cpumask));
+
+    while(atomic_read(&slave_data->slave_cnt) != 0);
+    dprintk("walk page table done\n");
 
     xfree(slave_data);
     xfree(migration_sync);

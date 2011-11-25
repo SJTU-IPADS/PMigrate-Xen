@@ -38,6 +38,8 @@ struct mc_slave_data {
 
     p2m_type_t ot;
     p2m_type_t nt;
+
+    atomic_t slave_cnt;
 };
 
 #endif
