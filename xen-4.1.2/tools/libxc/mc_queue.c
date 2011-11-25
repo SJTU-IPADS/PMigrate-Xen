@@ -20,9 +20,12 @@ struct sync_queue *alloc_queue(int num_entries) {
  * enqueue operation
  * add any param of sync_entry if necessary
  */
-void enqueue(struct sync_queue *queue, int len) {
+void enqueue(struct sync_queue *queue, int last_iter, int iter, int start_pfn, int len) {
     int index = atomic_read(&queue->total_index);
 
+    queue->sync_list[index].last_iter = last_iter;
+    queue->sync_list[index].iter = iter;
+    queue->sync_list[index].start_pfn = start_pfn;
     queue->sync_list[index].len = len;
     atomic_inc(&queue->total_index);
     return;
