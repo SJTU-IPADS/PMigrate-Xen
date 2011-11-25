@@ -152,7 +152,7 @@ static uint64_t tv_delta(struct timeval *new, struct timeval *old)
 }
 
 static int noncached_write(xc_interface *xch,
-                           int fd, int live, void *buffer, int len) 
+                           int fd, int live, void *buffer, int len)
 {
     static int write_count = 0;
     int rc = (write_exact(fd, buffer, len) == 0) ? len : -1;
@@ -509,7 +509,7 @@ static int canonicalize_pagetable(struct save_ctx *ctx,
                            const void *spage, void *dpage)
 {
     struct domain_info_context *dinfo = &ctx->dinfo;
-    int i, pte_last, xen_start, xen_end, race = 0; 
+    int i, pte_last, xen_start, xen_end, race = 0;
     uint64_t pte;
 
     /*
@@ -584,13 +584,13 @@ static int canonicalize_pagetable(struct save_ctx *ctx,
                 /* This will happen if the type info is stale which
                    is quite feasible under live migration */
                 pfn  = 0;  /* zap it - we'll retransmit this page later */
-                /* XXX: We can't spot Xen mappings in compat-mode L2es 
+                /* XXX: We can't spot Xen mappings in compat-mode L2es
                  * from 64-bit tools, but the only thing in them is the
                  * compat m2p, so we quietly zap them.  This doesn't
                  * count as a race, so don't report it. */
-                if ( !(type == XEN_DOMCTL_PFINFO_L2TAB 
+                if ( !(type == XEN_DOMCTL_PFINFO_L2TAB
                        && sizeof (unsigned long) > dinfo->guest_width) )
-                     race = 1;  /* inform the caller; fatal if !live */ 
+                     race = 1;  /* inform the caller; fatal if !live */
             }
             else
                 pfn = mfn_to_pfn(mfn);
@@ -678,8 +678,8 @@ err0:
 }
 
 
-static xen_pfn_t *map_and_save_p2m_table(xc_interface *xch, 
-                                         int io_fd, 
+static xen_pfn_t *map_and_save_p2m_table(xc_interface *xch,
+                                         int io_fd,
                                          uint32_t dom,
                                          struct save_ctx *ctx,
                                          shared_info_any_t *live_shinfo)
@@ -769,7 +769,7 @@ static xen_pfn_t *map_and_save_p2m_table(xc_interface *xch,
         goto out;
     }
     ctx->live_p2m = p2m; /* So that translation macros will work */
-    
+
     /* Canonicalise the pfn-to-mfn table frame-number list. */
     for ( i = 0; i < dinfo->p2m_size; i += FPP )
     {
@@ -778,12 +778,12 @@ static xen_pfn_t *map_and_save_p2m_table(xc_interface *xch,
             ERROR("Frame# in pfn-to-mfn frame list is not in pseudophys");
             ERROR("entry %d: p2m_frame_list[%ld] is 0x%"PRIx64", max 0x%lx",
                   i, i/FPP, (uint64_t)p2m_frame_list[i/FPP], ctx->max_mfn);
-            if ( p2m_frame_list[i/FPP] < ctx->max_mfn ) 
+            if ( p2m_frame_list[i/FPP] < ctx->max_mfn )
             {
-                ERROR("m2p[0x%"PRIx64"] = 0x%"PRIx64, 
+                ERROR("m2p[0x%"PRIx64"] = 0x%"PRIx64,
                       (uint64_t)p2m_frame_list[i/FPP],
                       (uint64_t)ctx->live_m2p[p2m_frame_list[i/FPP]]);
-                ERROR("p2m[0x%"PRIx64"] = 0x%"PRIx64, 
+                ERROR("p2m[0x%"PRIx64"] = 0x%"PRIx64,
                       (uint64_t)ctx->live_m2p[p2m_frame_list[i/FPP]],
                       (uint64_t)p2m[ctx->live_m2p[p2m_frame_list[i/FPP]]]);
 
@@ -806,8 +806,8 @@ static xen_pfn_t *map_and_save_p2m_table(xc_interface *xch,
      */
     {
         unsigned long signature = ~0UL;
-        uint32_t chunk1_sz = ((dinfo->guest_width==8) 
-                              ? sizeof(ctxt.x64) 
+        uint32_t chunk1_sz = ((dinfo->guest_width==8)
+                              ? sizeof(ctxt.x64)
                               : sizeof(ctxt.x32));
         uint32_t chunk2_sz = 0;
         uint32_t chunk3_sz = 4;
@@ -849,7 +849,7 @@ static xen_pfn_t *map_and_save_p2m_table(xc_interface *xch,
         }
     }
 
-    if ( write_exact(io_fd, p2m_frame_list, 
+    if ( write_exact(io_fd, p2m_frame_list,
                      P2M_FL_ENTRIES * sizeof(xen_pfn_t)) )
     {
         PERROR("write: p2m_frame_list");
@@ -859,7 +859,7 @@ static xen_pfn_t *map_and_save_p2m_table(xc_interface *xch,
     success = 1;
 
  out:
-    
+
     if ( !success && p2m )
         munmap(p2m, P2M_FL_ENTRIES * PAGE_SIZE);
 
@@ -869,10 +869,10 @@ static xen_pfn_t *map_and_save_p2m_table(xc_interface *xch,
     if ( live_p2m_frame_list )
         munmap(live_p2m_frame_list, P2M_FLL_ENTRIES * PAGE_SIZE);
 
-    if ( p2m_frame_list_list ) 
+    if ( p2m_frame_list_list )
         free(p2m_frame_list_list);
 
-    if ( p2m_frame_list ) 
+    if ( p2m_frame_list )
         free(p2m_frame_list);
 
     return success ? p2m : NULL;
@@ -895,6 +895,81 @@ static int save_tsc_info(xc_interface *xch, uint32_t dom, int io_fd)
         return -1;
     return 0;
 }
+
+#if 1
+
+struct slave_ret {
+    unsigned int send_this_batch;
+    unsigned int skip_this_batch;
+};
+
+/*
+ * Function slave thread run
+ *
+ */
+
+struct slave_ret slave_fun(void * arg){
+   /*
+    * Function variables instruments:
+    *
+    * Set pfn_batch, pfn_type, pfn_err, skip_this_iter, needed_to_fix, region_base
+    * Need io_fd, last_iter, start_pfn_N, batch_size, iter, hvm, to_send, to_fix, to_skip, debug, completed, xch, dom
+    *
+    * As para:
+    *   io_fd, hvm, to_send, to_fix, to_skip(three bit_map pointers), debug, xch, dom
+    *
+    * As queue attr:
+    *   last_iter, start_pfn_N, batch_size, iter
+    */
+
+
+   /*
+    * Sec 1
+    *
+    * Set pfn_batch, pfn_type, skip_this_iter, needed_to_fix
+    *
+    * Use for iter
+    *
+    */
+
+   /*
+    * Sec 2
+    *
+    * Set region_base
+    *
+    * Get page types: use for iter
+    *
+    * Send batch and pfn_type info
+    *
+    */
+
+   /*
+    * Sec 3
+    *
+    * Send memory pages
+    *
+    */
+
+   /* entering this loop, pfn_type is now in pfns (Not mfns) */
+
+   /*
+    * Sec 4
+    *
+    * Set sent_this_batch
+    *
+    * munmap region_base batch
+    *
+    */
+
+    /*
+     * Spin for next queue node
+     *
+     */
+
+}
+
+
+#endif
 
 int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iters,
                    uint32_t max_factor, uint32_t flags,
@@ -1036,7 +1111,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                                         XEN_DOMCTL_SHADOW_OP_ENABLE_LOGDIRTY,
                                         NULL, 0, NULL, 0, NULL);
             }
-            
+
             if ( frc < 0 )
             {
                 PERROR("Couldn't enable shadow mode (rc %d) (errno %d)", frc, errno );
@@ -1140,7 +1215,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         /*
          * Quick belt and braces sanity check.
          */
-        
+
         for ( i = 0; i < dinfo->p2m_size; i++ )
         {
             mfn = pfn_to_mfn(i);
@@ -1193,6 +1268,9 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         skip_this_iter = 0;
         N = 0;
 
+
+        #if 1
+
         while ( N < dinfo->p2m_size )
         {
             xc_report_progress_step(xch, N, dinfo->p2m_size);
@@ -1210,6 +1288,8 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                     goto out;
                 }
             }
+
+
 
             /* load pfn_type[] with the mfn of all the pages we're doing in
                this batch. */
@@ -1277,7 +1357,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                         pfn_type[batch] = n;
                     else
                         pfn_type[batch] = pfn_to_mfn(n);
-                    
+
                     if ( !is_mapped(pfn_type[batch]) )
                     {
                         /*
@@ -1301,7 +1381,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
                     clear_bit(n, to_fix);
                 }
-                
+
                 batch++;
             }
 
@@ -1315,7 +1395,11 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 PERROR("map batch failed");
                 goto out;
             }
-
+	    /*
+	     *	Maybe here finish allocate batch and start tranfer
+	     *		By zmz
+	     *
+	    */
             /* Get page types */
             if ( xc_get_pfn_type_batch(xch, dom, batch, pfn_type) )
             {
@@ -1408,14 +1492,14 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                        run of pages we may have previously acumulated */
                     if ( run )
                     {
-                        if ( ratewrite(io_fd, live, 
-                                       (char*)region_base+(PAGE_SIZE*(j-run)), 
+                        if ( ratewrite(io_fd, live,
+                                       (char*)region_base+(PAGE_SIZE*(j-run)),
                                        PAGE_SIZE*run) != PAGE_SIZE*run )
                         {
                             PERROR("Error when writing to state file (4a)"
                                   " (errno %d)", errno);
                             goto out;
-                        }                        
+                        }
                         run = 0;
                     }
                 }
@@ -1430,8 +1514,8 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                      (pagetype <= XEN_DOMCTL_PFINFO_L4TAB) )
                 {
                     /* We have a pagetable page: need to rewrite it. */
-                    race = 
-                        canonicalize_pagetable(ctx, pagetype, pfn, spage, page); 
+                    race =
+                        canonicalize_pagetable(ctx, pagetype, pfn, spage, page);
 
                     if ( race && !live )
                     {
@@ -1457,21 +1541,38 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             if ( run )
             {
                 /* write out the last accumulated run of pages */
-                if ( ratewrite(io_fd, live, 
-                               (char*)region_base+(PAGE_SIZE*(j-run)), 
+                if ( ratewrite(io_fd, live,
+                               (char*)region_base+(PAGE_SIZE*(j-run)),
                                PAGE_SIZE*run) != PAGE_SIZE*run )
                 {
                     PERROR("Error when writing to state file (4c)"
                           " (errno %d)", errno);
                     goto out;
-                }                        
+                }
             }
 
             sent_this_iter += batch;
 
             munmap(region_base, batch*PAGE_SIZE);
 
+
+
         } /* end of this while loop for this iteration */
+
+        #else
+
+                 /*
+                  * Master fun
+                  *
+                  * Allocate batch:
+                  *     while dinfo->p2m_size
+                  *     Enqueue node
+                  *     Set sent_this_iter
+                  *
+                  */
+
+        #endif
+
 
       skip:
 
@@ -1666,7 +1767,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         goto out;
     }
 
-    if ( hvm ) 
+    if ( hvm )
     {
         uint32_t rec_size;
 
@@ -1685,25 +1786,25 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         }
 
         /* Get HVM context from Xen and save it too */
-        if ( (rec_size = xc_domain_hvm_getcontext(xch, dom, hvm_buf, 
+        if ( (rec_size = xc_domain_hvm_getcontext(xch, dom, hvm_buf,
                                                   hvm_buf_size)) == -1 )
         {
             PERROR("HVM:Could not get hvm buffer");
             goto out;
         }
-        
+
         if ( wrexact(io_fd, &rec_size, sizeof(uint32_t)) )
         {
             PERROR("error write hvm buffer size");
             goto out;
         }
-        
+
         if ( wrexact(io_fd, hvm_buf, rec_size) )
         {
             PERROR("write HVM info failed!");
             goto out;
         }
-        
+
         /* HVM guests are done now */
         rc = 0;
         goto out;
@@ -1791,7 +1892,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             ERROR("PT base is not in range of pseudophys map");
             goto out;
         }
-        SET_FIELD(&ctxt, ctrlreg[3], 
+        SET_FIELD(&ctxt, ctrlreg[3],
             FOLD_CR3(mfn_to_pfn(UNFOLD_CR3(GET_FIELD(&ctxt, ctrlreg[3])))));
 
         /* Guest pagetable (x86/64) stored in otherwise-unused CR1. */
@@ -1807,8 +1908,8 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 FOLD_CR3(mfn_to_pfn(UNFOLD_CR3(ctxt.x64.ctrlreg[1])));
         }
 
-        if ( wrexact(io_fd, &ctxt, ((dinfo->guest_width==8) 
-                                        ? sizeof(ctxt.x64) 
+        if ( wrexact(io_fd, &ctxt, ((dinfo->guest_width==8)
+                                        ? sizeof(ctxt.x64)
                                         : sizeof(ctxt.x32))) )
         {
             PERROR("Error when writing to state file (1)");
@@ -1878,7 +1979,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
      * Reset the MFN to be a known-invalid value. See map_frame_list_list().
      */
     memcpy(page, live_shinfo, PAGE_SIZE);
-    SET_FIELD(((shared_info_any_t *)page), 
+    SET_FIELD(((shared_info_any_t *)page),
               arch.pfn_to_mfn_frame_list_list, 0);
     if ( wrexact(io_fd, page, PAGE_SIZE) )
     {
@@ -1943,7 +2044,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
     if ( live )
     {
-        if ( xc_shadow_control(xch, dom, 
+        if ( xc_shadow_control(xch, dom,
                                XEN_DOMCTL_SHADOW_OP_OFF,
                                NULL, 0, NULL, 0, NULL) < 0 )
             DPRINTF("Warning - couldn't disable shadow mode");
