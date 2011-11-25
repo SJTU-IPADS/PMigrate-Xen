@@ -25,6 +25,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <pthread.h>
+
 
 #include "xc_private.h"
 #include "xc_dom.h"
@@ -33,6 +35,10 @@
 
 #include <xen/hvm/params.h>
 #include "xc_e820.h"
+#include "mc_ma_sl.h"
+#include "mc_queue.h"
+
+
 
 /*
 ** Default values for important tuning parameters. Can override by passing
@@ -922,6 +928,42 @@ struct slave_ret slave_fun(void * arg){
     *   last_iter, start_pfn_N, batch_size, iter
     */
 
+    /*
+     * Sec 0
+     *
+     * Set arg
+     */
+
+
+       struct slave_arg s_arg = *(struct slave_arg *)arg;
+       int io_fd = s_arg.io_fd_s;
+       int debug = s_arg.debug_s;
+       int hvm = s_arg.hvm_s;
+       uint32_t dom = s_arg.dom_s;
+       unsigned long * to_fix = s_arg.to_fix_s;
+       void * to_send = s_arg.to_send_s;
+       void * to_skip = s_arg.to_skip_s;
+       xc_interface * xch = s_arg.xch_s;
+       struct sync_queue * queue = s_arg.queue;
+
+       /* entry attr */
+       sync_entry * entry;
+       unsigned int batch, start_pfn;
+       int last_iter, iter, len;
+
+       /* A table containing the type of each PFN (/not/ MFN!). */
+       xen_pfn_t *pfn_type = NULL;
+       unsigned long *pfn_batch = NULL;
+       int *pfn_err = NULL;
+
+       pfn_type   = malloc(ROUNDUP(MAX_BATCH_SIZE * sizeof(*pfn_type), PAGE_SHIFT));
+       pfn_batch  = calloc(MAX_BATCH_SIZE, sizeof(*pfn_batch));
+       pfn_err    = malloc(MAX_BATCH_SIZE * sizeof(*pfn_err));
+
+       int sent_this_slave = 0;
+
+    /* infinite deal with queue entry */
+   while (1){
 
    /*
     * Sec 1
@@ -931,6 +973,114 @@ struct slave_ret slave_fun(void * arg){
     * Use for iter
     *
     */
+
+
+       /*
+        * Spin for next queue node
+        *
+        */
+
+   /* Should use CV to get queue entry ---- not imple */
+    entry = dequeue(queue);
+
+    last_iter = entry.last_iter;
+    iter = entry.iter;
+    start_pfn = entry.start_pfn;
+    len = entry.len;
+
+    /* check end entry for iter */
+    if (last_iter == -1 && iter == -1 && start_pfn == -1 && len == -1)
+        goto slave_sleep;
+
+
+    for  ( batch = 0; (batch < MAX_BATCH_SIZE) && (N < len ); N++ ) {
+                int n = start_pfn;
+
+                if ( debug )
+                {
+                    DPRINTF("%d pfn= %08lx mfn= %08lx %d",
+                            iter, (unsigned long)n,
+                            hvm ? 0 : pfn_to_mfn(n),
+                            test_bit(n, to_send));
+                    if ( !hvm && is_mapped(pfn_to_mfn(n)) )
+                        DPRINTF("  [mfn]= %08lx",
+                                mfn_to_pfn(pfn_to_mfn(n)&0xFFFFF));
+                    DPRINTF("\n");
+                }
+
+                if ( completed )
+                {
+                    /* for sparse bitmaps, word-by-word may save time */
+                    if ( !to_send[N >> ORDER_LONG] )
+                    {
+                        /* incremented again in for loop! */
+                        N += BITS_PER_LONG - 1;
+                        continue;
+                    }
+
+                    if ( !test_bit(n, to_send) )
+                        continue;
+
+                    pfn_batch[batch] = n;
+                    if ( hvm )
+                        pfn_type[batch] = n;
+                    else
+                        pfn_type[batch] = pfn_to_mfn(n);
+                }
+                else
+                {
+                    if ( !last_iter &&
+                         test_bit(n, to_send) &&
+                         test_bit(n, to_skip) )
+                        skip_this_iter++; /* stats keeping */
+
+                    if ( !((test_bit(n, to_send) && !test_bit(n, to_skip)) ||
+                           (test_bit(n, to_send) && last_iter) ||
+                           (test_bit(n, to_fix)  && last_iter)) )
+                        continue;
+
+                    /*
+                    ** we get here if:
+                    **  1. page is marked to_send & hasn't already been re-dirtied
+                    **  2. (ignore to_skip in last iteration)
+                    **  3. add in pages that still need fixup (net bufs)
+                    */
+
+                    pfn_batch[batch] = n;
+
+                    /* Hypercall interfaces operate in PFNs for HVM guests
+                     * and MFNs for PV guests */
+                    if ( hvm )
+                        pfn_type[batch] = n;
+                    else
+                        pfn_type[batch] = pfn_to_mfn(n);
+
+                    if ( !is_mapped(pfn_type[batch]) )
+                    {
+                        /*
+                        ** not currently in psuedo-physical map -- set bit
+                        ** in to_fix since we must send this page in last_iter
+                        ** unless its sent sooner anyhow, or it never enters
+                        ** pseudo-physical map (e.g. for ballooned down doms)
+                        */
+                        set_bit(n, to_fix);
+                        continue;
+                    }
+
+                    if ( last_iter &&
+                         test_bit(n, to_fix) &&
+                         !test_bit(n, to_send) )
+                    {
+                        needed_to_fix++;
+                        DPRINTF("Fix! iter %d, pfn %x. mfn %lx\n",
+                                iter, n, pfn_type[batch]);
+                    }
+
+                    clear_bit(n, to_fix);
+                }
+
+                batch++;
+            }
 
    /*
     * Sec 2
@@ -943,6 +1093,94 @@ struct slave_ret slave_fun(void * arg){
     *
     */
 
+               region_base = xc_map_foreign_bulk(
+                   xch, dom, PROT_READ, pfn_type, pfn_err, batch);
+               if ( region_base == NULL )
+               {
+                   PERROR("map batch failed");
+                   goto out;
+               }
+
+               /* Get page types */
+               if ( xc_get_pfn_type_batch(xch, dom, batch, pfn_type) )
+               {
+                   PERROR("get_pfn_type_batch failed");
+                   goto out;
+               }
+
+               for ( run = j = 0; j < batch; j++ )
+               {
+                   unsigned long gmfn = pfn_batch[j];
+
+                   if ( !hvm )
+                       gmfn = pfn_to_mfn(gmfn);
+
+                   if ( pfn_err[j] )
+                   {
+                       if ( pfn_type[j] == XEN_DOMCTL_PFINFO_XTAB )
+                           continue;
+                       DPRINTF("map fail: page %i mfn %08lx err %d\n",
+                               j, gmfn, pfn_err[j]);
+                       pfn_type[j] = XEN_DOMCTL_PFINFO_XTAB;
+                       continue;
+                   }
+
+                   if ( pfn_type[j] == XEN_DOMCTL_PFINFO_XTAB )
+                   {
+                       DPRINTF("type fail: page %i mfn %08lx\n", j, gmfn);
+                       continue;
+                   }
+
+                   /* canonicalise mfn->pfn */
+                   pfn_type[j] |= pfn_batch[j];
+                   ++run;
+
+                   if ( debug )
+                   {
+                       if ( hvm )
+                           DPRINTF("%d pfn=%08lx sum=%08lx\n",
+                                   iter,
+                                   pfn_type[j],
+                                   csum_page(region_base + (PAGE_SIZE*j)));
+                       else
+                           DPRINTF("%d pfn= %08lx mfn= %08lx [mfn]= %08lx"
+                                   " sum= %08lx\n",
+                                   iter,
+                                   pfn_type[j],
+                                   gmfn,
+                                   mfn_to_pfn(gmfn),
+                                   csum_page(region_base + (PAGE_SIZE*j)));
+                   }
+               }
+
+               if ( !run )
+               {
+                   munmap(region_base, batch*PAGE_SIZE);
+                   continue; /* bail on this batch: no valid pages */
+               }
+
+               if ( wrexact(io_fd, &batch, sizeof(unsigned int)) )
+               {
+                   PERROR("Error when writing to state file (2)");
+                   goto out;
+               }
+
+               if ( sizeof(unsigned long) < sizeof(*pfn_type) )
+                   for ( j = 0; j < batch; j++ )
+                       ((unsigned long *)pfn_type)[j] = pfn_type[j];
+               if ( wrexact(io_fd, pfn_type, sizeof(unsigned long)*batch) )
+               {
+                   PERROR("Error when writing to state file (3)");
+                   goto out;
+               }
+               if ( sizeof(unsigned long) < sizeof(*pfn_type) )
+                   while ( --j >= 0 )
+                       pfn_type[j] = ((unsigned long *)pfn_type)[j];
+
+
+
+
+
    /*
     * Sec 3
     *
@@ -952,20 +1190,104 @@ struct slave_ret slave_fun(void * arg){
 
    /* entering this loop, pfn_type is now in pfns (Not mfns) */
 
+               run = 0;
+               for ( j = 0; j < batch; j++ )
+               {
+                   unsigned long pfn, pagetype;
+                   void *spage = (char *)region_base + (PAGE_SIZE*j);
+
+                   pfn      = pfn_type[j] & ~XEN_DOMCTL_PFINFO_LTAB_MASK;
+                   pagetype = pfn_type[j] &  XEN_DOMCTL_PFINFO_LTAB_MASK;
+
+                   if ( pagetype != 0 )
+                   {
+                       /* If the page is not a normal data page, write out any
+                          run of pages we may have previously acumulated */
+                       if ( run )
+                       {
+                           if ( ratewrite(io_fd, live,
+                                          (char*)region_base+(PAGE_SIZE*(j-run)),
+                                          PAGE_SIZE*run) != PAGE_SIZE*run )
+                           {
+                               PERROR("Error when writing to state file (4a)"
+                                     " (errno %d)", errno);
+                               goto out;
+                           }
+                           run = 0;
+                       }
+                   }
+
+                   /* skip pages that aren't present */
+                   if ( pagetype == XEN_DOMCTL_PFINFO_XTAB )
+                       continue;
+
+                   pagetype &= XEN_DOMCTL_PFINFO_LTABTYPE_MASK;
+
+                   if ( (pagetype >= XEN_DOMCTL_PFINFO_L1TAB) &&
+                        (pagetype <= XEN_DOMCTL_PFINFO_L4TAB) )
+                   {
+                       /* We have a pagetable page: need to rewrite it. */
+                       race =
+                           canonicalize_pagetable(ctx, pagetype, pfn, spage, page);
+
+                       if ( race && !live )
+                       {
+                           ERROR("Fatal PT race (pfn %lx, type %08lx)", pfn,
+                                 pagetype);
+                           goto out;
+                       }
+
+                       if ( ratewrite(io_fd, live, page, PAGE_SIZE) != PAGE_SIZE )
+                       {
+                           PERROR("Error when writing to state file (4b)"
+                                 " (errno %d)", errno);
+                           goto out;
+                       }
+                   }
+                   else
+                   {
+                       /* We have a normal page: accumulate it for writing. */
+                       run++;
+                   }
+               } /* end of the write out for this batch */
+
+               if ( run )
+               {
+                   /* write out the last accumulated run of pages */
+                   if ( ratewrite(io_fd, live,
+                                  (char*)region_base+(PAGE_SIZE*(j-run)),
+                                  PAGE_SIZE*run) != PAGE_SIZE*run )
+                   {
+                       PERROR("Error when writing to state file (4c)"
+                             " (errno %d)", errno);
+                       goto out;
+                   }
+               }
+
+
+
    /*
     * Sec 4
     *
-    * Set sent_this_batch
+    * Set sent_this_slave
     *
     * munmap region_base batch
     *
     */
+       sent_this_slave += batch;
+       munmap(region_base, batch*PAGE_SIZE);
 
-    /*
-     * Spin for next queue node
-     *
+       continue;
+
+   slave_sleep:
+
+    /* first enqueue sent_this_slave
+     * slave sleep here ----- not imple
      */
+        enqueue(queue, 0, 0, 0, sent_this_slave);
 
+
+   }
 }
 
 
@@ -1269,7 +1591,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         N = 0;
 
 
-        #if 1
+        #if 0
 
         while ( N < dinfo->p2m_size )
         {
@@ -1395,11 +1717,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 PERROR("map batch failed");
                 goto out;
             }
-	    /*
-	     *	Maybe here finish allocate batch and start tranfer
-	     *		By zmz
-	     *
-	    */
+
             /* Get page types */
             if ( xc_get_pfn_type_batch(xch, dom, batch, pfn_type) )
             {
@@ -1561,15 +1879,102 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
         #else
 
-                 /*
-                  * Master fun
-                  *
-                  * Allocate batch:
-                  *     while dinfo->p2m_size
-                  *     Enqueue node
-                  *     Set sent_this_iter
-                  *
-                  */
+        /*
+         * Master fun
+         *
+         * Allocate batch:
+         *     while dinfo->p2m_size
+         *     Enqueue node
+         *     Set sent_this_iter
+         *
+         */
+
+        /*
+         * Create slaves
+         */
+        int i_s = 0;
+        int slave_num = 2; /* suppose have two slaves */
+        int errno_s;
+        pthread_t* pthread_Id = pthread_t[slave_num];
+        struct sync_queue * sl_queue = alloc_queue((dinfo->p2m_size / MAX_BATCH_SIZE) + 20);
+
+        for (i_s = 0; i_s < slave_num; i_s++){
+            struct slave_arg s_arg;
+            s_arg.io_fd_s = io_fd[i_s];
+            s_arg.hvm_s = hvm;
+            s_arg.debug_s = debug;
+            s_arg.to_send_s = to_send;
+            s_arg.to_skip_s = to_skip;
+            s_arg.to_fix_s = to_fix;
+            s_arg.xch_s = xch;
+            s_arg.queue = sl_queue;
+
+
+            if ((errno_s = pthread_create(pthread_Id + i_s, NULL, slave_fun, &s_arg)) != 0){
+                 PERROR("Error when create pthread (errno_s %d)", errno_s);
+                    goto out;
+            }
+        }
+
+         /*
+          * while dinfo->p2m_size
+          */
+         while ( N < dinfo->p2m_size ) {
+                     xc_report_progress_step(xch, N, dinfo->p2m_size);
+
+                     if ( !last_iter )
+                     {
+                         /* Slightly wasteful to peek the whole array every time,
+                            but this is fast enough for the moment. */
+                         frc = xc_shadow_control(
+                             xch, dom, XEN_DOMCTL_SHADOW_OP_PEEK, HYPERCALL_BUFFER(to_skip),
+                             dinfo->p2m_size, NULL, 0, NULL);
+                         if ( frc != dinfo->p2m_size )
+                         {
+                             ERROR("Error peeking shadow bitmap");
+                             goto out;
+                         }
+                     }
+
+                     /* Divide dinfo->p2m_size and enqueue nodes
+                     */
+                     int node_num = dinfo->p2m_size / MAX_BATCH_SIZE;
+                     int i_q = 0;
+
+                     for  ( i_q = 0; i_q < node_num; i_q++)
+                     {
+                        enqueue(sl_queue, last_iter, iter, i_q * MAX_BATCH_SIZE, MAX_BATCH_SIZE);
+
+                     }
+
+                     /* deal rest pages */
+                     if (node_num * MAX_BATCH_SIZE != dinfo->p2m_size){
+                        enqueue(sl_queue, last_iter, iter, i_q * MAX_BATCH_SIZE, (dinfo->p2m_size - (node_num * MAX_BATCH_SIZE)));
+                     }
+
+                     /* enqueue iter end symbol with all attr -1*/
+                     for  ( i_s  = 0; i_s  < slave_num; i_s++)
+                     {
+                        enqueue(sl_queue, -1, -1, -1, -1);
+
+                     }
+
+                     /* master should sleep here */
+
+
+
+                     /* dequeue info about send batch size each slave */
+                     struct sync_entry send_this_iter_entry;
+                     for  ( i_s  = 0; i_s  < slave_num; i_s++)
+                     {
+                        send_this_iter_entry = dequeue(sl_queue);
+                        sent_this_iter += send_this_iter_entry.len;
+                     }
+
+
+        } /* end of this while loop for this iteration */
+
+
 
         #endif
 
