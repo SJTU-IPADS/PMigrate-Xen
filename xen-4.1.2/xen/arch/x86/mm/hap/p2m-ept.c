@@ -1009,7 +1009,7 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
 
     slave_data = xmalloc(struct mc_slave_data);
     slave_data->migration_sync = migration_sync;
-    cpus_clear(slave_data->slave_cpumask);
+    slave_data->slave_cpumask = cpumask;
 
     slave_data->ot = ot;
     slave_data->nt = nt;
