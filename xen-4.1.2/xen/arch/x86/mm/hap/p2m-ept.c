@@ -1025,6 +1025,7 @@ static void ept_change_entry_type_global(struct p2m_domain *p2m,
      * current pcpu because the slave
      */
     multi_change_dirty_slave(slave_data);
+    while (!cpus_equal(cpumask, slave_data->slave_cpumask));
 
     xfree(slave_data);
     xfree(migration_sync);
