@@ -910,7 +910,8 @@ static void multi_change_dirty_master(struct mc_migr_sync *migration_sync, mfn_t
                         /*
                          * do not wait for slaves
                          */
-                        cpus_xor(target, slave_data->slave_cpumask, cpumask);
+                        //cpus_xor(target, slave_data->slave_cpumask, cpumask);
+                        target = slave_data->slave_cpumask;
                         cpus_clear(slave_data->slave_cpumask);
                         on_selected_cpus(&target, multi_change_dirty_slave, (void *)slave_data, 0);
                     }
