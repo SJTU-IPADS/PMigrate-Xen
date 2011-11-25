@@ -824,6 +824,8 @@ static void multi_change_dirty_slave(void *data) {
     ept_entry_t e, *epte;
     int start_entry_i, len;
 
+    dprintk("slave in cpu %d\n", get_processor_id());
+
     /*
      * There exist a race in reading current index and fetch the sync_entry
      */
@@ -861,6 +863,8 @@ static void multi_change_dirty_slave(void *data) {
         consume_index = atomic_return_and_inc(&sync_info->consume_size);
         current_index = atomic_read(&sync_info->current_size);
     }
+
+    dprintk("slave return %d\n", get_processor_id());
 }
 
 static void multi_change_dirty_master(struct mc_migr_sync *migration_sync, mfn_t ept_page_mfn, 
