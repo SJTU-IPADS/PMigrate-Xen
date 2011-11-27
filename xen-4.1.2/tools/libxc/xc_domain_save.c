@@ -904,22 +904,18 @@ static int save_tsc_info(xc_interface *xch, uint32_t dom, int io_fd)
 
 #if 1
 
-struct slave_ret {
-    unsigned int send_this_batch;
-    unsigned int skip_this_batch;
-};
 
 /*
  * Function slave thread run
  *
  */
 
-struct slave_ret slave_fun(void * arg){
+void* slave_fun(void * arg){
    /*
     * Function variables instruments:
     *
     * Set pfn_batch, pfn_type, pfn_err, skip_this_iter, needed_to_fix, region_base
-    * Need io_fd, last_iter, start_pfn_N, batch_size, iter, hvm, to_send, to_fix, to_skip, debug, completed, xch, dom
+    * Need io_fd, last_iter, start_pfn_N, batch_size, iter, hvm, to_send, to_fix, to_skip, debug, completed, xch, dom, pfn_to_mfn para, wrexact ratewrite para
     *
     * As para:
     *   io_fd, hvm, to_send, to_fix, to_skip(three bit_map pointers), debug, xch, dom
@@ -934,22 +930,35 @@ struct slave_ret slave_fun(void * arg){
      * Set arg
      */
 
-
        struct slave_arg s_arg = *(struct slave_arg *)arg;
        int io_fd = s_arg.io_fd_s;
        int debug = s_arg.debug_s;
+       int live = s_arg.live;
        int hvm = s_arg.hvm_s;
        uint32_t dom = s_arg.dom_s;
        unsigned long * to_fix = s_arg.to_fix_s;
-       void * to_send = s_arg.to_send_s;
-       void * to_skip = s_arg.to_skip_s;
+       unsigned long * to_send = s_arg.to_send_s;
+       unsigned long * to_skip = s_arg.to_skip_s;
        xc_interface * xch = s_arg.xch_s;
        struct sync_queue * queue = s_arg.queue;
+       struct outbuf ob = *(s_arg.ob);
+       struct save_ctx *ctx = s_arg.ctx;
+       struct domain_info_context *dinfo = &ctx->dinfo;
 
        /* entry attr */
-       sync_entry * entry;
-       unsigned int batch, start_pfn;
+       struct sync_entry * entry = NULL;
+       unsigned int batch, start_pfn, N;
        int last_iter, iter, len;
+
+       int sent_this_slave;
+       int skip_this_iter;
+       int needed_to_fix;
+       int j, run, completed, race;
+
+       unsigned char * region_base;
+
+       /* A copy of one frame of guest memory. */
+       char page[PAGE_SIZE];
 
        /* A table containing the type of each PFN (/not/ MFN!). */
        xen_pfn_t *pfn_type = NULL;
@@ -960,7 +969,19 @@ struct slave_ret slave_fun(void * arg){
        pfn_batch  = calloc(MAX_BATCH_SIZE, sizeof(*pfn_batch));
        pfn_err    = malloc(MAX_BATCH_SIZE * sizeof(*pfn_err));
 
-       int sent_this_slave = 0;
+
+       sent_this_slave	= 0;
+       skip_this_iter   = 0;
+       needed_to_fix	= 0;
+       completed        = 0;
+       race		= 0;
+
+
+#define wrexact(fd, buf, len) write_buffer(xch, last_iter, &ob, (fd), (buf), (len))
+#ifdef ratewrite
+#undef ratewrite
+#endif
+#define ratewrite(fd, live, buf, len) ratewrite_buffer(xch, last_iter, &ob, (fd), (live), (buf), (len))
 
     /* infinite deal with queue entry */
    while (1){
@@ -981,12 +1002,15 @@ struct slave_ret slave_fun(void * arg){
         */
 
    /* Should use CV to get queue entry ---- not imple */
+   while (entry){
     entry = dequeue(queue);
+   }
 
-    last_iter = entry.last_iter;
-    iter = entry.iter;
-    start_pfn = entry.start_pfn;
-    len = entry.len;
+    last_iter = entry->last_iter;
+    iter = entry->iter;
+    start_pfn = entry->start_pfn;
+    len = entry->len;
+    N = 0;
 
     /* check end entry for iter */
     if (last_iter == -1 && iter == -1 && start_pfn == -1 && len == -1)
@@ -1284,9 +1308,26 @@ struct slave_ret slave_fun(void * arg){
     /* first enqueue sent_this_slave
      * slave sleep here ----- not imple
      */
-        enqueue(queue, 0, 0, 0, sent_this_slave);
 
+/*	enqueue_entry.last_iter = 0;
+	enqueue_entry.iter = needed_to_fix;
+	enqueue_entry.start_pfn = skip_this_iter;
+	enqueue_entry.len = sent_this_slave;
 
+        enqueue(sl_queue, (struct sync_queue *)&enqueue_entry);*/
+        enqueue(queue, 0, needed_to_fix, skip_this_iter, sent_this_slave);
+	
+	continue;
+
+   /* error handle 
+    *
+    * Should suspend all slaves and return to master execute "out" code
+    *
+    *
+    */
+   out:
+	continue;
+	
    }
 }
 
@@ -1303,7 +1344,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     int rc = 1, frc, i, j, last_iter = 0, iter = 0;
     int live  = (flags & XCFLAGS_LIVE);
     int debug = (flags & XCFLAGS_DEBUG);
-    int race = 0, sent_last_iter, skip_this_iter = 0;
+    int sent_last_iter, skip_this_iter = 0;
     unsigned int sent_this_iter = 0;
     int tmem_saved = 0;
 
@@ -1325,7 +1366,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     shared_info_any_t *live_shinfo = NULL;
 
     /* base of the region in which domain memory is mapped */
-    unsigned char *region_base = NULL;
+    /* unsigned char *region_base = NULL;*/
 
     /* A copy of the CPU eXtended States of the guest. */
     DECLARE_HYPERCALL_BUFFER(void, buffer);
@@ -1576,8 +1617,16 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     /* Now write out each data page, canonicalising page tables as we go... */
     for ( ; ; )
     {
-        unsigned int N, batch, run;
+        unsigned int N;
+        int i_s, slave_num; /* suppose have two slaves */
+        int errno_s;
+        int node_num;
+        int i_q;
         char reportbuf[80];
+
+        pthread_t pthread_Id[2]; /* should be slave_num */
+        struct sync_queue * sl_queue = alloc_queue((dinfo->p2m_size / MAX_BATCH_SIZE) + 20);
+        struct sync_entry * send_this_iter_entry;
 
         snprintf(reportbuf, sizeof(reportbuf),
                  "Saving memory: iter %d (last sent %u skipped %u)",
@@ -1892,22 +1941,23 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         /*
          * Create slaves
          */
-        int i_s = 0;
-        int slave_num = 2; /* suppose have two slaves */
-        int errno_s;
-        pthread_t* pthread_Id = pthread_t[slave_num];
-        struct sync_queue * sl_queue = alloc_queue((dinfo->p2m_size / MAX_BATCH_SIZE) + 20);
+        i_s = 0;
+        slave_num = 2; /* suppose have two slaves */
 
         for (i_s = 0; i_s < slave_num; i_s++){
             struct slave_arg s_arg;
-            s_arg.io_fd_s = io_fd[i_s];
+	    /* should be io_fd[i_s];*/
+            s_arg.io_fd_s = io_fd;
             s_arg.hvm_s = hvm;
             s_arg.debug_s = debug;
             s_arg.to_send_s = to_send;
             s_arg.to_skip_s = to_skip;
             s_arg.to_fix_s = to_fix;
             s_arg.xch_s = xch;
+            s_arg.live = live;
             s_arg.queue = sl_queue;
+            s_arg.ob = &ob;
+	    s_arg.ctx = ctx;
 
 
             if ((errno_s = pthread_create(pthread_Id + i_s, NULL, slave_fun, &s_arg)) != 0){
@@ -1938,13 +1988,19 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
                      /* Divide dinfo->p2m_size and enqueue nodes
                      */
-                     int node_num = dinfo->p2m_size / MAX_BATCH_SIZE;
-                     int i_q = 0;
+                     node_num = dinfo->p2m_size / MAX_BATCH_SIZE;
+                     i_q = 0;
 
                      for  ( i_q = 0; i_q < node_num; i_q++)
                      {
-                        enqueue(sl_queue, last_iter, iter, i_q * MAX_BATCH_SIZE, MAX_BATCH_SIZE);
+		/*	enqueue_entry.last_iter = last_iter;
+			enqueue_entry.iter = iter;
+			enqueue_entry.start_pfn = i_q * MAX_BATCH_SIZE;
+			enqueue_entry.len = MAX_BATCH_SIZE;
 
+                        enqueue(sl_queue, (struct sync_queue *)&enqueue_entry);*/
+
+                        enqueue(sl_queue, last_iter, iter, i_q * MAX_BATCH_SIZE, MAX_BATCH_SIZE);
                      }
 
                      /* deal rest pages */
@@ -1955,7 +2011,14 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                      /* enqueue iter end symbol with all attr -1*/
                      for  ( i_s  = 0; i_s  < slave_num; i_s++)
                      {
-                        enqueue(sl_queue, -1, -1, -1, -1);
+		/*	enqueue_entry.last_iter = -1;
+			enqueue_entry.iter = -1;
+			enqueue_entry.start_pfn = -1;
+			enqueue_entry.len = -1;
+
+                        enqueue(sl_queue, &enqueue_entry);*/
+
+                        enqueue(sl_queue, -1, -1, -1,-1);
 
                      }
 
@@ -1964,11 +2027,10 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
 
                      /* dequeue info about send batch size each slave */
-                     struct sync_entry send_this_iter_entry;
                      for  ( i_s  = 0; i_s  < slave_num; i_s++)
                      {
                         send_this_iter_entry = dequeue(sl_queue);
-                        sent_this_iter += send_this_iter_entry.len;
+                        sent_this_iter += send_this_iter_entry->len;
                      }
 
 
@@ -1979,7 +2041,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         #endif
 
 
-      skip:
+     /* skip:*/
 
         xc_report_progress_step(xch, dinfo->p2m_size, dinfo->p2m_size);
 

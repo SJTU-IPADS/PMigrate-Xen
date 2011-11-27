@@ -25,7 +25,7 @@ struct sync_queue {
 };
 
 extern struct sync_queue *alloc_queue(int num_entries);
-extern void enqueue(struct sync_queue *queue, int len);
+extern void enqueue(struct sync_queue *queue,  int last_iter, int iter, int start_pfn, int len);
 extern struct sync_entry *dequeue(struct sync_queue *queue);
 extern int has_obj(struct sync_queue *queue);
 #endif
