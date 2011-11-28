@@ -25,7 +25,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/time.h>
-#include <pthread.h>
+
 
 
 #include "xc_private.h"
@@ -1002,9 +1002,19 @@ void* slave_fun(void * arg){
         */
 
    /* Should use CV to get queue entry ---- not imple */
+   entry = NULL; /* clear last entry */
+
+   pthread_mutex_lock(&ms_mutex);
+
+   entry = dequeue(queue);
+
    while (entry){
+    pthread_cond_wait(&queue_threshold_cv, &ms_mutex);
     entry = dequeue(queue);
    }
+
+   pthread_mutex_unlock(&ms_mutex);
+
 
     last_iter = entry->last_iter;
     iter = entry->iter;
@@ -1298,36 +1308,40 @@ void* slave_fun(void * arg){
     * munmap region_base batch
     *
     */
-       sent_this_slave += batch;
-       munmap(region_base, batch*PAGE_SIZE);
+        sent_this_slave += batch;
+        munmap(region_base, batch*PAGE_SIZE);
 
-       continue;
+        continue;
 
    slave_sleep:
-
     /* first enqueue sent_this_slave
      * slave sleep here ----- not imple
      */
 
-/*	enqueue_entry.last_iter = 0;
-	enqueue_entry.iter = needed_to_fix;
-	enqueue_entry.start_pfn = skip_this_iter;
-	enqueue_entry.len = sent_this_slave;
 
-        enqueue(sl_queue, (struct sync_queue *)&enqueue_entry);*/
+        pthread_mutex_lock(&ms_mutex);
+
+        sl_cont++;
+
         enqueue(queue, 0, needed_to_fix, skip_this_iter, sent_this_slave);
-	
-	continue;
 
-   /* error handle 
+        pthread_cond_wait(&slave_threshold_cv, &ms_mutex);
+
+        pthread_mutex_unlock(&ms_mutex);
+
+	    continue;
+
+   /* error handle
     *
     * Should suspend all slaves and return to master execute "out" code
     *
     *
     */
    out:
-	continue;
-	
+        pthread_mutex_lock(&ms_mutex);
+
+	    continue;
+
    }
 }
 
@@ -1342,6 +1356,8 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     DECLARE_DOMCTL;
 
     int rc = 1, frc, i, j, last_iter = 0, iter = 0;
+    int i_s = 0; /* index of slave threads */
+    int errno_s;
     int live  = (flags & XCFLAGS_LIVE);
     int debug = (flags & XCFLAGS_DEBUG);
     int sent_last_iter, skip_this_iter = 0;
@@ -1403,6 +1419,11 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     static struct save_ctx *ctx = &_ctx;
     struct domain_info_context *dinfo = &ctx->dinfo;
 
+    /* queue and entry */
+    pthread_t pthread_Id[NUM_THREADS]; /* should be slave_num */
+    struct sync_queue * sl_queue = alloc_queue((dinfo->p2m_size / MAX_BATCH_SIZE) + 20);
+    struct sync_entry * send_this_iter_entry;
+    
     int completed = 0;
 
     if ( hvm && !callbacks->switch_qemu_logdirty )
@@ -1614,19 +1635,53 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 #endif
 #define ratewrite(fd, live, buf, len) ratewrite_buffer(xch, last_iter, &ob, (fd), (live), (buf), (len))
 
+
+            /*
+             * Create slaves
+             */
+
+
+            for (i_s = 0; i_s < NUM_THREADS; i_s++){
+                struct slave_arg s_arg;
+            /* should be io_fd[i_s];*/
+                s_arg.io_fd_s = io_fd;
+                s_arg.hvm_s = hvm;
+                s_arg.debug_s = debug;
+                s_arg.to_send_s = to_send;
+                s_arg.to_skip_s = to_skip;
+                s_arg.to_fix_s = to_fix;
+                s_arg.xch_s = xch;
+                s_arg.live = live;
+                s_arg.queue = sl_queue;
+                s_arg.ob = &ob;
+            s_arg.ctx = ctx;
+
+
+                if ((errno_s = pthread_create(pthread_Id + i_s, NULL, slave_fun, &s_arg)) != 0){
+                     PERROR("Error when create pthread (errno_s %d)", errno_s);
+                        goto out;
+                }
+            }
+
+            /* init mutex lock and cv */
+            pthread_mutex_init(&ms_mutex,NULL);
+            pthread_cond_init(&slave_threshold_cv,NULL);
+            pthread_cond_init(&master_threshold_cv,NULL);
+
+            /* use to check if all slave finish iter*/
+            sl_cont = 0;
+            /* boolean for mem tran err */
+            error_out = 0;
+
+
     /* Now write out each data page, canonicalising page tables as we go... */
     for ( ; ; )
     {
         unsigned int N;
-        int i_s, slave_num; /* suppose have two slaves */
-        int errno_s;
-        int node_num;
+
+        int entry_num;
         int i_q;
         char reportbuf[80];
-
-        pthread_t pthread_Id[2]; /* should be slave_num */
-        struct sync_queue * sl_queue = alloc_queue((dinfo->p2m_size / MAX_BATCH_SIZE) + 20);
-        struct sync_entry * send_this_iter_entry;
 
         snprintf(reportbuf, sizeof(reportbuf),
                  "Saving memory: iter %d (last sent %u skipped %u)",
@@ -1937,39 +1992,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
          *     Set sent_this_iter
          *
          */
-
-        /*
-         * Create slaves
-         */
-        i_s = 0;
-        slave_num = 2; /* suppose have two slaves */
-
-        for (i_s = 0; i_s < slave_num; i_s++){
-            struct slave_arg s_arg;
-	    /* should be io_fd[i_s];*/
-            s_arg.io_fd_s = io_fd;
-            s_arg.hvm_s = hvm;
-            s_arg.debug_s = debug;
-            s_arg.to_send_s = to_send;
-            s_arg.to_skip_s = to_skip;
-            s_arg.to_fix_s = to_fix;
-            s_arg.xch_s = xch;
-            s_arg.live = live;
-            s_arg.queue = sl_queue;
-            s_arg.ob = &ob;
-	    s_arg.ctx = ctx;
-
-
-            if ((errno_s = pthread_create(pthread_Id + i_s, NULL, slave_fun, &s_arg)) != 0){
-                 PERROR("Error when create pthread (errno_s %d)", errno_s);
-                    goto out;
-            }
-        }
-
-         /*
-          * while dinfo->p2m_size
-          */
-         while ( N < dinfo->p2m_size ) {
                      xc_report_progress_step(xch, N, dinfo->p2m_size);
 
                      if ( !last_iter )
@@ -1988,53 +2010,73 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
                      /* Divide dinfo->p2m_size and enqueue nodes
                      */
-                     node_num = dinfo->p2m_size / MAX_BATCH_SIZE;
+                     entry_num = dinfo->p2m_size / MAX_BATCH_SIZE;
                      i_q = 0;
 
-                     for  ( i_q = 0; i_q < node_num; i_q++)
+                     for  ( i_q = 0; i_q < entry_num; i_q++)
                      {
-		/*	enqueue_entry.last_iter = last_iter;
-			enqueue_entry.iter = iter;
-			enqueue_entry.start_pfn = i_q * MAX_BATCH_SIZE;
-			enqueue_entry.len = MAX_BATCH_SIZE;
-
-                        enqueue(sl_queue, (struct sync_queue *)&enqueue_entry);*/
-
-                        enqueue(sl_queue, last_iter, iter, i_q * MAX_BATCH_SIZE, MAX_BATCH_SIZE);
+	                    enqueue(sl_queue, last_iter, iter, i_q * MAX_BATCH_SIZE, MAX_BATCH_SIZE);
+                        pthread_cond_broadcast(&queue_threshold_cv); /* broadcast one mem enqueued */
                      }
 
                      /* deal rest pages */
-                     if (node_num * MAX_BATCH_SIZE != dinfo->p2m_size){
-                        enqueue(sl_queue, last_iter, iter, i_q * MAX_BATCH_SIZE, (dinfo->p2m_size - (node_num * MAX_BATCH_SIZE)));
+                     if (entry_num * MAX_BATCH_SIZE != dinfo->p2m_size){
+                        enqueue(sl_queue, last_iter, iter, i_q * MAX_BATCH_SIZE, (dinfo->p2m_size - (entry_num * MAX_BATCH_SIZE)));
+                        pthread_cond_broadcast(&queue_threshold_cv); /* broadcast one mem enqueued */
                      }
 
                      /* enqueue iter end symbol with all attr -1*/
-                     for  ( i_s  = 0; i_s  < slave_num; i_s++)
+                     for  ( i_s  = 0; i_s  < NUM_THREADS; i_s++)
                      {
-		/*	enqueue_entry.last_iter = -1;
-			enqueue_entry.iter = -1;
-			enqueue_entry.start_pfn = -1;
-			enqueue_entry.len = -1;
-
-                        enqueue(sl_queue, &enqueue_entry);*/
-
-                        enqueue(sl_queue, -1, -1, -1,-1);
-
+	                    enqueue(sl_queue, -1, -1, -1,-1);
                      }
 
                      /* master should sleep here */
+                     pthread_mutex_lock(&ms_mutex);
 
-
-
-                     /* dequeue info about send batch size each slave */
-                     for  ( i_s  = 0; i_s  < slave_num; i_s++)
-                     {
-                        send_this_iter_entry = dequeue(sl_queue);
-                        sent_this_iter += send_this_iter_entry->len;
+                     /* check if err happen */
+                     if (error_out != 0) {
+                        for  ( i_s  = 0; i_s  < NUM_THREADS; i_s++){
+                            pthread_cancel(pthread_Id[i_s]);
+                            }
+                        pthread_mutex_unlock(&ms_mutex);
+                        goto out;
                      }
 
+                     /* broadcast all mem enqueued */
+                     pthread_cond_broadcast(&queue_threshold_cv);
+                     /* wait until all slave finish this iter */
+                     while (sl_cont < NUM_THREADS) {
 
-        } /* end of this while loop for this iteration */
+                        pthread_cond_wait(&master_threshold_cv, &ms_mutex);
+
+                        if (error_out != 0) {
+                            for  ( i_s  = 0; i_s  < NUM_THREADS; i_s++){
+                                pthread_cancel(pthread_Id[i_s]);
+                                }
+                            pthread_mutex_unlock(&ms_mutex);
+                            goto out;
+                            }
+
+                        }
+
+                     sl_cont = 0;
+
+                     /* dequeue info about send batch size each slave */
+                     for  ( i_s  = 0; i_s  < NUM_THREADS; i_s++)
+                     {
+                        send_this_iter_entry = dequeue(sl_queue);
+                        needed_to_fix   += send_this_iter_entry->iter;
+                        skip_this_iter  += send_this_iter_entry->start_pfn;
+                        sent_this_iter  += send_this_iter_entry->len;
+                     }
+
+                     pthread_cond_broadcast(&slave_threshold_cv);
+
+                     pthread_mutex_unlock(&ms_mutex);
+
+
+
 
 
 
