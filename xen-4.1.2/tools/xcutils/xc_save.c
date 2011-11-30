@@ -167,7 +167,8 @@ int
 main(int argc, char **argv)
 {
     unsigned int maxit, max_f;
-    int io_fd, ret, port;
+    int io_fd_num, ret, port, i_fd;
+    int * io_fd;
     struct save_callbacks callbacks;
 
     if (argc != 6)
@@ -177,11 +178,15 @@ main(int argc, char **argv)
     if (!si.xch)
         errx(1, "failed to open control interface");
 
-    io_fd = atoi(argv[1]);
-    si.domid = atoi(argv[2]);
-    maxit = atoi(argv[3]);
-    max_f = atoi(argv[4]);
-    si.flags = atoi(argv[5]);
+    io_fd_num = atoi(argv[1]);
+    io_fd = malloc(sizeof(int) * io_fd_num);
+    for (i_fd = 0; i_fd < io_fd_num; i_fd++){
+        io_fd[i_fd] = atoi(argv[2 + i_fd]);
+    }
+    si.domid = atoi(argv[2 + i_fd]);
+    maxit = atoi(argv[3 + i_fd]);
+    max_f = atoi(argv[4 + i_fd]);
+    si.flags = atoi(argv[5 + i_fd]);
 
     si.suspend_evtchn = -1;
 
@@ -207,7 +212,7 @@ main(int argc, char **argv)
     memset(&callbacks, 0, sizeof(callbacks));
     callbacks.suspend = suspend;
     callbacks.switch_qemu_logdirty = switch_qemu_logdirty;
-    ret = xc_domain_save(si.xch, io_fd, si.domid, maxit, max_f, si.flags, 
+    ret = xc_domain_save(si.xch, io_fd_num, io_fd, si.domid, maxit, max_f, si.flags, 
                          &callbacks, !!(si.flags & XCFLAGS_HVM));
 
     if (si.suspend_evtchn > 0)

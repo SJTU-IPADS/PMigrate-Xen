@@ -1348,7 +1348,7 @@ void* slave_fun(void * arg){
 
 #endif
 
-int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iters,
+int xc_domain_save(xc_interface *xch, int io_fd_num, int * io_fd, uint32_t dom, uint32_t max_iters,
                    uint32_t max_factor, uint32_t flags,
                    struct save_callbacks* callbacks, int hvm)
 {
@@ -1514,7 +1514,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     {
         /* This is a non-live suspend. Suspend the domain .*/
         if ( suspend_and_state(callbacks->suspend, callbacks->data, xch,
-                               io_fd, dom, &info) )
+                               io_fd[0], dom, &info) )
         {
             ERROR("Domain appears not to have suspended");
             goto out;
@@ -1578,7 +1578,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     }
 
     /* Start writing out the saved-domain record. */
-    if ( write_exact(io_fd, &dinfo->p2m_size, sizeof(unsigned long)) )
+    if ( write_exact(io_fd[0], &dinfo->p2m_size, sizeof(unsigned long)) )
     {
         PERROR("write: p2m_size");
         goto out;
@@ -1589,7 +1589,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         int err = 0;
 
         /* Map the P2M table, and write the list of P2M frames */
-        ctx->live_p2m = map_and_save_p2m_table(xch, io_fd, dom, ctx, live_shinfo);
+        ctx->live_p2m = map_and_save_p2m_table(xch, io_fd[0], dom, ctx, live_shinfo);
         if ( ctx->live_p2m == NULL )
         {
             PERROR("Failed to map/save the p2m frame list");
@@ -1615,14 +1615,14 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
     print_stats(xch, dom, 0, &stats, 0);
 
-    tmem_saved = xc_tmem_save(xch, dom, io_fd, live, XC_SAVE_ID_TMEM);
+    tmem_saved = xc_tmem_save(xch, dom, io_fd[0], live, XC_SAVE_ID_TMEM);
     if ( tmem_saved == -1 )
     {
         PERROR("Error when writing to state file (tmem)");
         goto out;
     }
 
-    if ( !live && save_tsc_info(xch, dom, io_fd) < 0 )
+    if ( !live && save_tsc_info(xch, dom, io_fd[0]) < 0 )
     {
         PERROR("Error when writing to state file (tsc)");
         goto out;
@@ -1644,7 +1644,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             for (i_s = 0; i_s < NUM_THREADS; i_s++){
                 struct slave_arg s_arg;
             /* should be io_fd[i_s];*/
-                s_arg.io_fd_s = io_fd;
+                s_arg.io_fd_s = io_fd[0];
                 s_arg.hvm_s = hvm;
                 s_arg.debug_s = debug;
                 s_arg.to_send_s = to_send;
@@ -2106,7 +2106,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             DPRINTF("Entering debug resend-all mode\n");
 
             /* send "-1" to put receiver into debug mode */
-            if ( wrexact(io_fd, &id, sizeof(int)) )
+            if ( wrexact(io_fd[0], &id, sizeof(int)) )
             {
                 PERROR("Error when writing to state file (6)");
                 goto out;
@@ -2129,7 +2129,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 last_iter = 1;
 
                 if ( suspend_and_state(callbacks->suspend, callbacks->data,
-                                       xch, io_fd, dom, &info) )
+                                       xch, io_fd[0], dom, &info) )
                 {
                     ERROR("Domain appears not to have suspended");
                     goto out;
@@ -2137,13 +2137,13 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
                 DPRINTF("SUSPEND shinfo %08lx\n", info.shared_info_frame);
                 if ( (tmem_saved > 0) &&
-                     (xc_tmem_save_extra(xch,dom,io_fd,XC_SAVE_ID_TMEM_EXTRA) == -1) )
+                     (xc_tmem_save_extra(xch,dom,io_fd[0],XC_SAVE_ID_TMEM_EXTRA) == -1) )
                 {
                         PERROR("Error when writing to state file (tmem)");
                         goto out;
                 }
 
-                if ( save_tsc_info(xch, dom, io_fd) < 0 )
+                if ( save_tsc_info(xch, dom, io_fd[0]) < 0 )
                 {
                     PERROR("Error when writing to state file (tsc)");
                     goto out;
@@ -2191,7 +2191,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         }
 
         chunk.vcpumap = vcpumap;
-        if ( wrexact(io_fd, &chunk, sizeof(chunk)) )
+        if ( wrexact(io_fd[0], &chunk, sizeof(chunk)) )
         {
             PERROR("Error when writing to state file");
             goto out;
@@ -2212,7 +2212,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                          (unsigned long *)&chunk.data);
 
         if ( (chunk.data != 0) &&
-             wrexact(io_fd, &chunk, sizeof(chunk)) )
+             wrexact(io_fd[0], &chunk, sizeof(chunk)) )
         {
             PERROR("Error when writing the ident_pt for EPT guest");
             goto out;
@@ -2224,7 +2224,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                          (unsigned long *)&chunk.data);
 
         if ( (chunk.data != 0) &&
-             wrexact(io_fd, &chunk, sizeof(chunk)) )
+             wrexact(io_fd[0], &chunk, sizeof(chunk)) )
         {
             PERROR("Error when writing the vm86 TSS for guest");
             goto out;
@@ -2236,7 +2236,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                          (unsigned long *)&chunk.data);
 
         if ( (chunk.data != 0) &&
-             wrexact(io_fd, &chunk, sizeof(chunk)) )
+             wrexact(io_fd[0], &chunk, sizeof(chunk)) )
         {
             PERROR("Error when writing the console pfn for guest");
             goto out;
@@ -2247,7 +2247,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         xc_get_hvm_param(xch, dom, HVM_PARAM_ACPI_IOPORTS_LOCATION,
                          (unsigned long *)&chunk.data);
 
-        if ((chunk.data != 0) && wrexact(io_fd, &chunk, sizeof(chunk)))
+        if ((chunk.data != 0) && wrexact(io_fd[0], &chunk, sizeof(chunk)))
         {
             PERROR("Error when writing the firmware ioport version");
             goto out;
@@ -2261,7 +2261,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
          * last checkpoint.
          */
         i = XC_SAVE_ID_LAST_CHECKPOINT;
-        if ( wrexact(io_fd, &i, sizeof(int)) )
+        if ( wrexact(io_fd[0], &i, sizeof(int)) )
         {
             PERROR("Error when writing last checkpoint chunk");
             goto out;
@@ -2270,7 +2270,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
     /* Zero terminate */
     i = 0;
-    if ( wrexact(io_fd, &i, sizeof(int)) )
+    if ( wrexact(io_fd[0], &i, sizeof(int)) )
     {
         PERROR("Error when writing to state file (6')");
         goto out;
@@ -2288,7 +2288,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                          (unsigned long *)&magic_pfns[1]);
         xc_get_hvm_param(xch, dom, HVM_PARAM_STORE_PFN,
                          (unsigned long *)&magic_pfns[2]);
-        if ( wrexact(io_fd, magic_pfns, sizeof(magic_pfns)) )
+        if ( wrexact(io_fd[0], magic_pfns, sizeof(magic_pfns)) )
         {
             PERROR("Error when writing to state file (7)");
             goto out;
@@ -2302,13 +2302,13 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             goto out;
         }
 
-        if ( wrexact(io_fd, &rec_size, sizeof(uint32_t)) )
+        if ( wrexact(io_fd[0], &rec_size, sizeof(uint32_t)) )
         {
             PERROR("error write hvm buffer size");
             goto out;
         }
 
-        if ( wrexact(io_fd, hvm_buf, rec_size) )
+        if ( wrexact(io_fd[0], hvm_buf, rec_size) )
         {
             PERROR("write HVM info failed!");
             goto out;
@@ -2332,7 +2332,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 j++;
         }
 
-        if ( wrexact(io_fd, &j, sizeof(unsigned int)) )
+        if ( wrexact(io_fd[0], &j, sizeof(unsigned int)) )
         {
             PERROR("Error when writing to state file (6a)");
             goto out;
@@ -2346,7 +2346,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             i++;
             if ( (j == 1024) || (i == dinfo->p2m_size) )
             {
-                if ( wrexact(io_fd, &pfntab, sizeof(unsigned long)*j) )
+                if ( wrexact(io_fd[0], &pfntab, sizeof(unsigned long)*j) )
                 {
                     PERROR("Error when writing to state file (6b)");
                     goto out;
@@ -2417,7 +2417,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 FOLD_CR3(mfn_to_pfn(UNFOLD_CR3(ctxt.x64.ctrlreg[1])));
         }
 
-        if ( wrexact(io_fd, &ctxt, ((dinfo->guest_width==8)
+        if ( wrexact(io_fd[0], &ctxt, ((dinfo->guest_width==8)
                                         ? sizeof(ctxt.x64)
                                         : sizeof(ctxt.x32))) )
         {
@@ -2433,7 +2433,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             PERROR("No extended context for VCPU%d", i);
             goto out;
         }
-        if ( wrexact(io_fd, &domctl.u.ext_vcpucontext, 128) )
+        if ( wrexact(io_fd[0], &domctl.u.ext_vcpucontext, 128) )
         {
             PERROR("Error when writing to state file (2)");
             goto out;
@@ -2471,11 +2471,11 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             goto out;
         }
 
-        if ( wrexact(io_fd, &domctl.u.vcpuextstate.xfeature_mask,
+        if ( wrexact(io_fd[0], &domctl.u.vcpuextstate.xfeature_mask,
                      sizeof(domctl.u.vcpuextstate.xfeature_mask)) ||
-             wrexact(io_fd, &domctl.u.vcpuextstate.size,
+             wrexact(io_fd[0], &domctl.u.vcpuextstate.size,
                      sizeof(domctl.u.vcpuextstate.size)) ||
-             wrexact(io_fd, buffer, domctl.u.vcpuextstate.size) )
+             wrexact(io_fd[0], buffer, domctl.u.vcpuextstate.size) )
         {
             PERROR("Error when writing to state file VCPU extended state");
             xc_hypercall_buffer_free(xch, buffer);
@@ -2490,14 +2490,14 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     memcpy(page, live_shinfo, PAGE_SIZE);
     SET_FIELD(((shared_info_any_t *)page),
               arch.pfn_to_mfn_frame_list_list, 0);
-    if ( wrexact(io_fd, page, PAGE_SIZE) )
+    if ( wrexact(io_fd[0], page, PAGE_SIZE) )
     {
         PERROR("Error when writing to state file (1)");
         goto out;
     }
 
     /* Flush last write and check for errors. */
-    if ( fsync(io_fd) && errno != EINVAL )
+    if ( fsync(io_fd[0]) && errno != EINVAL )
     {
         PERROR("Error when flushing state file");
         goto out;
@@ -2513,12 +2513,12 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         callbacks->postcopy(callbacks->data);
 
     /* Flush last write and discard cache for file. */
-    if ( outbuf_flush(xch, &ob, io_fd) < 0 ) {
+    if ( outbuf_flush(xch, &ob, io_fd[0]) < 0 ) {
         PERROR("Error when flushing output buffer");
         rc = 1;
     }
 
-    discard_file_cache(xch, io_fd, 1 /* flush */);
+    discard_file_cache(xch, io_fd[0], 1 /* flush */);
 
     /* checkpoint_cb can spend arbitrarily long in between rounds */
     if (!rc && callbacks->checkpoint &&
@@ -2530,7 +2530,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         rc = 1;
         /* last_iter = 1; */
         if ( suspend_and_state(callbacks->suspend, callbacks->data, xch,
-                               io_fd, dom, &info) )
+                               io_fd[0], dom, &info) )
         {
             ERROR("Domain appears not to have suspended");
             goto out;

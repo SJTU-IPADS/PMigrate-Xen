@@ -191,7 +191,7 @@ int checkpoint_start(checkpoint_state* s, int fd,
 
     callbacks->switch_qemu_logdirty = noop_switch_logdirty;
 
-    rc = xc_domain_save(s->xch, fd, s->domid, 0, 0, flags, callbacks, hvm);
+    rc = xc_domain_save(s->xch, 0, &fd, s->domid, 0, 0, flags, callbacks, hvm);
 
     if (hvm)
        switch_qemu_logdirty(s, 0);

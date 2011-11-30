@@ -395,7 +395,7 @@ out:
 }
 
 int
-xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iters,
+xc_domain_save(xc_interface *xch, int io_fd_num, int* io_fd, uint32_t dom, uint32_t max_iters,
                uint32_t max_factor, uint32_t flags,
                struct save_callbacks* callbacks, int hvm)
 {

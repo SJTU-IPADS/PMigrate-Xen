@@ -500,7 +500,7 @@ int libxl__domain_suspend_common(libxl_ctx *ctx, uint32_t domid, int fd,
     callbacks.switch_qemu_logdirty = libxl__domain_suspend_common_switch_qemu_logdirty;
     callbacks.data = &si;
 
-    rc = xc_domain_save(ctx->xch, fd, domid, 0, 0, flags, &callbacks, hvm);
+    rc = xc_domain_save(ctx->xch, 0, &fd, domid, 0, 0, flags, &callbacks, hvm);
     if ( rc ) {
         LIBXL__LOG_ERRNO(ctx, LIBXL__LOG_ERROR, "saving domain: %s",
                          si.guest_responded ?
