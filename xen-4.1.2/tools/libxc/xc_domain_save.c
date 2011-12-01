@@ -1339,8 +1339,10 @@ void* slave_fun(void * arg){
     */
    out:
         pthread_mutex_lock(&ms_mutex);
-
-	    continue;
+        error_out = -1;
+        pthread_cond_signal(&master_threshold_cv);
+        pthread_mutex_unlock(&ms_mutex);
+	    return NULL;
 
    }
 }
