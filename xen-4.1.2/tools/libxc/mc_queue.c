@@ -1,5 +1,6 @@
 /*
  * multi-core queue support
+ * Update Dec.2 Using void * instead of a specific struct (Yang Jian) 
  */
 #include <stdio.h>
 #include <malloc.h>
@@ -20,13 +21,15 @@ struct sync_queue *alloc_queue(int num_entries) {
  * enqueue operation
  * add any param of sync_entry if necessary
  */
-void enqueue(struct sync_queue *queue, int last_iter, int iter, int start_pfn, int len) {
+void enqueue(struct sync_queue *queue, void* item) {
     int index = atomic_read(&queue->total_index);
-
+/*
     queue->sync_list[index].last_iter = last_iter;
     queue->sync_list[index].iter = iter;
     queue->sync_list[index].start_pfn = start_pfn;
     queue->sync_list[index].len = len;
+*/
+    queue->sync_list[index].entry = item;
     atomic_inc(&queue->total_index);
     return;
 }

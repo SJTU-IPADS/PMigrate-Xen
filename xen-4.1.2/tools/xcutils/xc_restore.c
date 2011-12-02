@@ -4,7 +4,8 @@
  * this archive for more details.
  *
  * Copyright (C) 2005 by Christian Limpach
- *
+ * Changelog:
+ *  Dec 1. 2011. add multiple fds (Yang Jian)
  */
 
 #include <err.h>
@@ -19,9 +20,9 @@ int
 main(int argc, char **argv)
 {
     unsigned int domid, store_evtchn, console_evtchn;
-    unsigned int hvm, pae, apic;
+    unsigned int hvm, pae, apic, io_fd_num;
     xc_interface *xch;
-    int io_fd, ret;
+    int ret, *io_fd, i_fd;
     int superpages;
     unsigned long store_mfn, console_mfn;
 
@@ -33,19 +34,23 @@ main(int argc, char **argv)
     if ( !xch )
         errx(1, "failed to open control interface");
 
-    io_fd = atoi(argv[1]);
-    domid = atoi(argv[2]);
-    store_evtchn = atoi(argv[3]);
-    console_evtchn = atoi(argv[4]);
-    hvm  = atoi(argv[5]);
-    pae  = atoi(argv[6]);
-    apic = atoi(argv[7]);
-    if ( argc == 9 )
-	    superpages = atoi(argv[8]);
+    io_fd_num = atoi(argv[1]);
+    io_fd = malloc(sizeof(int) * io_fd_num);
+    for (i_fd = 0; i_fd < io_fd_num; i_fd++){
+        io_fd[i_fd] = atoi(argv[2 + i_fd]);
+    }
+    domid = atoi(argv[2 + i_fd]);
+    store_evtchn = atoi(argv[3 + i_fd]);
+    console_evtchn = atoi(argv[4 + i_fd]);
+    hvm  = atoi(argv[5 + i_fd]);
+    pae  = atoi(argv[6 + i_fd]);
+    apic = atoi(argv[7 + i_fd]);
+    if ( argc == 9 + i_fd )
+	    superpages = atoi(argv[8 + i_fd]);
     else
 	    superpages = 0;
 
-    ret = xc_domain_restore(xch, io_fd, domid, store_evtchn, &store_mfn,
+    ret = xc_domain_restore(xch, io_fd_num, io_fd, domid, store_evtchn, &store_mfn,
                             console_evtchn, &console_mfn, hvm, pae, superpages);
 
     if ( ret == 0 )

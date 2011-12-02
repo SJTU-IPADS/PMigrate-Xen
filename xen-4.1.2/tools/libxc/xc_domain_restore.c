@@ -11,7 +11,7 @@
  * modify it under the terms of the GNU Lesser General Public
  * License as published by the Free Software Foundation;
  * version 2.1 of the License.
- *
+
  * This library is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -20,7 +20,9 @@
  * You should have received a copy of the GNU Lesser General Public
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
- *
+ * 
+ * Changelog:
+ *  Dec 1. 2011 Simple multi-thread receiver
  */
 
 #include <stdlib.h>
@@ -32,6 +34,8 @@
 
 #include <xen/hvm/ioreq.h>
 #include <xen/hvm/params.h>
+#include "mc_queue.h"
+#include "mc_ma_sl.h"
 
 struct restore_ctx {
     unsigned long max_mfn; /* max mfn of the current host machine */
@@ -1077,18 +1081,49 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
     return rc;
 }
 
-int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
+void* recieve_fun(void* arg){
+    struct recieve_arg r_arg = *(struct recieve_arg *)arg;
+    int io_fd = r_arg.io_fd;
+    xc_interface *xch = r_arg.xch;
+    struct restore_ctx *ctx = r_arg.ctx;
+    uint32_t dom = r_arg.dom;
+    struct sync_queue *queue = r_arg.queue;
+    pagebuf_t *pagebuf;
+    //struct sync_entry *entry = NULL;
+
+    while ( !ctx->completed ) { /* TODO: there need an end-sending signal in each sender, here is INFINITY loop now!!! */
+        pagebuf =(pagebuf_t *)malloc(sizeof(pagebuf_t));
+        pagebuf->nr_physpages = pagebuf->nr_pages = 0;
+        if ( pagebuf_get_one(xch, ctx, pagebuf, io_fd, dom) < 0 ) {
+            PERROR("Error when reading batch");
+            goto out;
+        }else{
+            pthread_mutex_lock(&ms_mutex);
+            enqueue(queue, (void *)pagebuf);
+            pthread_mutex_unlock(&ms_mutex);
+        }
+    }
+out:
+    pthread_mutex_lock(&ms_mutex);
+    error_out = -1;
+    pthread_cond_signal(&master_threshold_cv);
+    pthread_mutex_unlock(&ms_mutex);
+    return NULL;
+}
+
+int xc_domain_restore(xc_interface *xch, int io_fd_num, int *io_fd, uint32_t dom,
                       unsigned int store_evtchn, unsigned long *store_mfn,
                       unsigned int console_evtchn, unsigned long *console_mfn,
                       unsigned int hvm, unsigned int pae, int superpages)
 {
     DECLARE_DOMCTL;
     int rc = 1, frc, i, j, n, m, pae_extended_cr3 = 0, ext_vcpucontext = 0;
-    int vcpuextstate = 0;
+    int vcpuextstate = 0, i_s = 0; /* index of slave threads */
     uint32_t vcpuextstate_size = 0;
     unsigned long mfn, pfn;
     unsigned int prev_pc;
     int nraces = 0;
+    int curbatch;
 
     /* The new domain's shared-info frame number. */
     unsigned long shared_info_frame;
@@ -1140,6 +1175,13 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
     };
     static struct restore_ctx *ctx = &_ctx;
     struct domain_info_context *dinfo = &ctx->dinfo;
+    
+    /* receive quene */
+    pthread_t pthread_id[io_fd_num];
+    struct sync_queue *sl_queue = alloc_queue((dinfo->p2m_size / MAX_BATCH_SIZE) + 20);
+    struct sync_entry *sl_entry; 
+
+
 
     pagebuf_init(&pagebuf);
     memset(&tailbuf, 0, sizeof(tailbuf));
@@ -1160,12 +1202,12 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
     }
 
 
-    if ( (orig_io_fd_flags = fcntl(io_fd, F_GETFL, 0)) < 0 ) {
+    if ( (orig_io_fd_flags = fcntl(io_fd[0], F_GETFL, 0)) < 0 ) { /* TODO: problem here? */
         PERROR("unable to read IO FD flags");
         goto out;
     }
 
-    if ( RDEXACT(io_fd, &dinfo->p2m_size, sizeof(unsigned long)) )
+    if ( RDEXACT(io_fd[0], &dinfo->p2m_size, sizeof(unsigned long)) )
     {
         PERROR("read: p2m_size");
         goto out;
@@ -1189,7 +1231,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
     {
         /* Load the p2m frame list, plus potential extended info chunk */
         p2m_frame_list = load_p2m_frame_list(xch, ctx,
-            io_fd, &pae_extended_cr3, &ext_vcpucontext,
+            io_fd[0], &pae_extended_cr3, &ext_vcpucontext,
             &vcpuextstate, &vcpuextstate_size);
 
         if ( !p2m_frame_list )
@@ -1258,13 +1300,60 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
     prev_pc = 0;
 
     n = m = 0;
- loadpages:
+     
+    for(i_s = 0; i_s < io_fd_num; i_s++){
+        struct recieve_arg arg;
+        arg.io_fd = io_fd[i_s];
+        arg.xch = xch;
+        arg.ctx = ctx;
+        arg.dom = dom;
+        arg.queue = sl_queue;
+//        arg.dinfo = dinfo;
+    }
+    
+    /* init mutex lock and cv */
+    pthread_mutex_init(&ms_mutex,NULL);
+    pthread_cond_init(&slave_threshold_cv,NULL);
+    pthread_cond_init(&master_threshold_cv,NULL);
+
+    /* use to check if all slave finish iter*/
+    sl_cont = 0;
+    /* boolean for mem tran err */
+    error_out = 0;
+
+
+loadpages:
     for ( ; ; )
     {
-        int j, curbatch;
+        if (error_out != 0){
+            for (i_s = 0; i_s < io_fd_num; i_s++){
+                pthread_cancel(pthread_id[i_s]);
+            }
+            pthread_mutex_unlock(&ms_mutex);
+            goto out;
+        }
+//        int j = 0, curbatch;
+
+        sl_entry = NULL;
 
         xc_report_progress_step(xch, n, dinfo->p2m_size);
+       
+        pthread_mutex_lock(&ms_mutex);
 
+        sl_entry = dequeue(sl_queue);
+        if(!sl_entry){
+            if(sl_cont == io_fd_num){ /* all slaves finished */
+                pthread_cond_broadcast(&slave_threshold_cv);; /* needed? */
+                pthread_mutex_unlock(&ms_mutex);
+                goto endbatch;
+            }else
+                continue;
+        }
+        pthread_mutex_unlock(&ms_mutex);
+
+        pagebuf = *(pagebuf_t *)sl_entry->entry;
+
+        /*
         if ( !ctx->completed ) {
             pagebuf.nr_physpages = pagebuf.nr_pages = 0;
             if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
@@ -1272,6 +1361,8 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
                 goto out;
             }
         }
+        */
+       
         j = pagebuf.nr_pages;
 
         DBGPRINTF("batch %d\n",j);
@@ -1318,10 +1409,12 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
         m += j;
         if ( m > MAX_PAGECACHE_USAGE )
         {
-            discard_file_cache(xch, io_fd, 0 /* no flush */);
+            discard_file_cache(xch, io_fd[0], 0 /* no flush */);
             m = 0;
         }
     }
+
+endbatch:
 
     /*
      * Ensure we flush all machphys updates before potential PAE-specific
@@ -1337,7 +1430,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 
     if ( !ctx->completed ) {
 
-        if ( buffer_tail(xch, ctx, &tailbuf, io_fd, max_vcpu_id, vcpumap,
+        if ( buffer_tail(xch, ctx, &tailbuf, io_fd[0], max_vcpu_id, vcpumap,
                          ext_vcpucontext, vcpuextstate, vcpuextstate_size) < 0 ) {
             ERROR ("error buffering image tail");
             goto out;
@@ -1350,7 +1443,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
          * nonblocking mode for the remainder.
          */
         if ( !ctx->last_checkpoint )
-            fcntl(io_fd, F_SETFL, orig_io_fd_flags | O_NONBLOCK);
+            fcntl(io_fd[0], F_SETFL, orig_io_fd_flags | O_NONBLOCK);
     }
 
     if (pagebuf.acpi_ioport_location == 1) {
@@ -1370,13 +1463,13 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 
     // DPRINTF("Buffered checkpoint\n");
 
-    if ( pagebuf_get(xch, ctx, &pagebuf, io_fd, dom) ) {
+    if ( pagebuf_get(xch, ctx, &pagebuf, io_fd[0], dom) ) {
         PERROR("error when buffering batch, finishing");
         goto finish;
     }
     memset(&tmptail, 0, sizeof(tmptail));
     tmptail.ishvm = hvm;
-    if ( buffer_tail(xch, ctx, &tmptail, io_fd, max_vcpu_id, vcpumap,
+    if ( buffer_tail(xch, ctx, &tmptail, io_fd[0], max_vcpu_id, vcpumap,
                      ext_vcpucontext, vcpuextstate, vcpuextstate_size) < 0 ) {
         ERROR ("error buffering image tail, finishing");
         goto finish;
@@ -1869,11 +1962,12 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
     free(pfn_type);
     tailbuf_free(&tailbuf);
 
-    /* discard cache for save file  */
-    discard_file_cache(xch, io_fd, 1 /*flush*/);
-
-    fcntl(io_fd, F_SETFL, orig_io_fd_flags);
-
+    for(i_s = 0; i_s < io_fd_num; i_s++){
+        /* discard cache for save file  */
+        discard_file_cache(xch, io_fd[i_s], 1 /*flush*/);
+    
+        fcntl(io_fd[i_s], F_SETFL, orig_io_fd_flags);
+    }
     DPRINTF("Restore exit with rc=%d\n", rc);
 
     return rc;
