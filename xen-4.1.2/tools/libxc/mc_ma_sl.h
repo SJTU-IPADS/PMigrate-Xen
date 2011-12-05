@@ -42,4 +42,20 @@ struct slave_ret {
     unsigned int skip_this_batch;
 };
 
+struct recieve_arg{
+    //pagebuf_t *pagebuf;
+    int io_fd;
+//    domain_info_context *dinfo;    
+    xc_interface *xch;
+    struct restore_ctx *ctx;
+    uint32_t dom;
+    struct sync_queue *queue;
+};
+
+struct recieve_ret{ /* I don't know what else is needed currently */
+    unsigned int recieved;
+};
+
 void* slave_fun(void * arg);
+
+void* recieve_fun(void * arg);

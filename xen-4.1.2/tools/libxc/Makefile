@@ -42,7 +42,7 @@ CTRL_SRCS-$(CONFIG_MiniOS) += xc_minios.c
 
 GUEST_SRCS-y :=
 GUEST_SRCS-y += xg_private.c xc_suspend.c
-GUEST_SRCS-$(CONFIG_MIGRATE) += xc_domain_restore.c xc_domain_save.c mc_queue.c #classicsong
+GUEST_SRCS-$(CONFIG_MIGRATE) += xc_domain_save.c xc_domain_restore mc_ma_sl.c mc_queue.c #classicsong (revised by yj)
 GUEST_SRCS-$(CONFIG_MIGRATE) += xc_offline_page.c
 GUEST_SRCS-$(CONFIG_HVM) += xc_hvm_build.c
 

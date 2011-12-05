@@ -11,10 +11,11 @@ struct sync_entry {
     /*
      * fill it up with necessary variables
      */
-    int last_iter;            /* boolean if last iter */ 
-    int iter; 		      /* iter number */	
-    int start_pfn;	      /* batch mem page start number */
-    int len;                  /* length of a batch */
+    //int last_iter;            /* boolean if last iter */ 
+    //int iter; 		      /* iter number */	
+    //int start_pfn;	      /* batch mem page start number */
+    //int len;                  /* length of a batch */
+    void *entry;
 };
 
 struct sync_queue {
@@ -25,7 +26,7 @@ struct sync_queue {
 };
 
 extern struct sync_queue *alloc_queue(int num_entries);
-extern void enqueue(struct sync_queue *queue,  int last_iter, int iter, int start_pfn, int len);
+extern void enqueue(struct sync_queue *queue,  void *item);
 extern struct sync_entry *dequeue(struct sync_queue *queue);
 extern int has_obj(struct sync_queue *queue);
 #endif
