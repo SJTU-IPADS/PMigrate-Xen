@@ -974,7 +974,7 @@ void* slave_fun(void * arg){
        skip_this_iter   = 0;
        needed_to_fix	= 0;
        completed        = 0;
-       race		= 0;
+       race		        = 0;
 
 
 #define wrexact(fd, buf, len) write_buffer(xch, last_iter, &ob, (fd), (buf), (len))
@@ -1001,7 +1001,7 @@ void* slave_fun(void * arg){
         *
         */
 
-   /* Should use CV to get queue entry ---- not imple */
+   /* Should use CV to get queue entry */
    entry = NULL; /* clear last entry */
 
    pthread_mutex_lock(&ms_mutex);
@@ -1042,12 +1042,12 @@ void* slave_fun(void * arg){
                     DPRINTF("\n");
                 }
 
-                if ( completed )
+                /*if ( completed )
                 {
-                    /* for sparse bitmaps, word-by-word may save time */
+                     for sparse bitmaps, word-by-word may save time 
                     if ( !to_send[N >> ORDER_LONG] )
                     {
-                        /* incremented again in for loop! */
+                         incremented again in for loop! 
                         N += BITS_PER_LONG - 1;
                         continue;
                     }
@@ -1062,7 +1062,7 @@ void* slave_fun(void * arg){
                         pfn_type[batch] = pfn_to_mfn(n);
                 }
                 else
-                {
+                {*/
                     if ( !last_iter &&
                          test_bit(n, to_send) &&
                          test_bit(n, to_skip) )
@@ -1111,7 +1111,7 @@ void* slave_fun(void * arg){
                     }
 
                     clear_bit(n, to_fix);
-                }
+               /* }*/
 
                 batch++;
             }
@@ -2018,8 +2018,11 @@ int xc_domain_save(xc_interface *xch, int io_fd_num, int * io_fd, uint32_t dom, 
                      for  ( i_q = 0; i_q < entry_num; i_q++)
                      {
 	                    enqueue(sl_queue, last_iter, iter, i_q * MAX_BATCH_SIZE, MAX_BATCH_SIZE);
-                        pthread_cond_broadcast(&queue_threshold_cv); /* broadcast one mem enqueued */
+                        if (i_q == NUM_THREADS)
+                            pthread_cond_broadcast(&queue_threshold_cv); /* broadcast one mem enqueued */
                      }
+
+                     pthread_cond_broadcast(&queue_threshold_cv); /* broadcast one mem enqueued */
 
                      /* deal rest pages */
                      if (entry_num * MAX_BATCH_SIZE != dinfo->p2m_size){
