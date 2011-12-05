@@ -171,6 +171,9 @@ main(int argc, char **argv)
     int * io_fd;
     struct save_callbacks callbacks;
 
+    for (i_fd = 0; i_fd < argc; i_fd++ )
+        printf("argv : %x",atoi(argv[i_fd]));
+
     if (argc != 6)
         errx(1, "usage: %s iofd domid maxit maxf flags", argv[0]);
 
@@ -179,7 +182,9 @@ main(int argc, char **argv)
         errx(1, "failed to open control interface");
 
     io_fd_num = atoi(argv[1]);
+    
     io_fd = malloc(sizeof(int) * io_fd_num);
+    
     for (i_fd = 0; i_fd < io_fd_num; i_fd++){
         io_fd[i_fd] = atoi(argv[2 + i_fd]);
     }

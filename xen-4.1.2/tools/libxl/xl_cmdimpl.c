@@ -2937,7 +2937,7 @@ int main_save(int argc, char **argv)
         }
     }
 
-    if (argc-optind < 1 || argc-optind > 3) {
+    if (argc-optind < 1 || argc-optind > 4) {
         help("save");
         return 2;
     }
@@ -2981,7 +2981,7 @@ int main_migrate(int argc, char **argv)
         }
     }
 
-    if (argc-optind < 2 || argc-optind > 2) {
+    if (argc-optind < 2 || argc-optind > 3) {
         help("migrate");
         return 2;
     }
@@ -2998,6 +2998,9 @@ int main_migrate(int argc, char **argv)
                      debug ? " -d" : "") < 0)
             return 1;
     }
+
+    printf ( "%s\n", rune );
+    
 
     migrate_domain(p, rune, config_filename);
     return 0;
