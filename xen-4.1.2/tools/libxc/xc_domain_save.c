@@ -931,6 +931,7 @@ void* slave_fun(void * arg){
      */
 
        struct slave_arg s_arg = *(struct slave_arg *)arg;
+       struct slave_entry *sl_en;
        int io_fd = s_arg.io_fd_s;
        int debug = s_arg.debug_s;
        int live = s_arg.live;
@@ -1323,12 +1324,12 @@ void* slave_fun(void * arg){
 
         sl_cont++;
         
-        struct slave_entry sl_en;
-        sl_en.last_iter = 0;
-        sl_en.iter = needed_to_fix;
-        sl_en.start_pfn = skip_this_iter;
-        sl_en.len = sent_this_slave;
-        enqueue(sl_queue, (void *)&sl_en);
+        sl_en = malloc(sizeof(struct slave_entry));
+        sl_en->last_iter = 0;
+        sl_en->iter = needed_to_fix;
+        sl_en->start_pfn = skip_this_iter;
+        sl_en->len = sent_this_slave;
+        enqueue(queue, (void *)sl_en);
 
         pthread_cond_wait(&slave_threshold_cv, &ms_mutex);
 
@@ -1430,6 +1431,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     pthread_t pthread_Id[NUM_THREADS]; /* should be slave_num */
     struct sync_queue * sl_queue = alloc_queue((dinfo->p2m_size / MAX_BATCH_SIZE) + 20);
     struct slave_entry * send_this_iter_entry;
+    struct slave_entry *sl_en;
     
     int completed = 0;
 
@@ -2021,13 +2023,13 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                      i_q = 0;
 
                      for  ( i_q = 0; i_q < entry_num; i_q++)
-                     {
-                         struct slave_entry sl_en;
-                         sl_en.last_iter = last_iter;
-                         sl_en.iter = iter;
-                         sl_en.start_pfn = i_q * MAX_BATCH_SIZE;
-                         sl_en.len = MAX_BATCH_SIZE;
-                         enqueue(sl_queue, (void *)&sl_en);
+                     {                         
+                         sl_en = malloc(sizeof(struct slave_entry));
+                         sl_en->last_iter = last_iter;
+                         sl_en->iter = iter;
+                         sl_en->start_pfn = i_q * MAX_BATCH_SIZE;
+                         sl_en->len = MAX_BATCH_SIZE;
+                         enqueue(sl_queue, (void *)sl_en);
                          if (i_q == NUM_THREADS)
                                pthread_cond_broadcast(&queue_threshold_cv); /* broadcast one mem enqueued */
                      }
@@ -2036,24 +2038,24 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
                      /* deal rest pages */
                      if (entry_num * MAX_BATCH_SIZE != dinfo->p2m_size){
-                         struct slave_entry sl_en;
-                         sl_en.last_iter = last_iter;
-                         sl_en.iter = iter;
-                         sl_en.start_pfn = i_q * MAX_BATCH_SIZE;
-                         sl_en.len = dinfo->p2m_size - (entry_num * MAX_BATCH_SIZE);
-                         enqueue(sl_queue, (void *)&sl_en);
+                         sl_en = malloc(sizeof(struct slave_entry));
+                         sl_en->last_iter = last_iter;
+                         sl_en->iter = iter;
+                         sl_en->start_pfn = i_q * MAX_BATCH_SIZE;
+                         sl_en->len = MAX_BATCH_SIZE;
+                         enqueue(sl_queue, (void *)sl_en);
                          pthread_cond_broadcast(&queue_threshold_cv); /* broadcast one mem enqueued */
                      }
 
                      /* enqueue iter end symbol with all attr -1*/
                      for  ( i_s  = 0; i_s  < NUM_THREADS; i_s++)
                      {
-                         struct slave_entry sl_en;
-                         sl_en.last_iter = -1;
-                         sl_en.iter = -1;
-                         sl_en.start_pfn = -1;
-                         sl_en.len = -1;
-                         enqueue(sl_queue, (void *)&sl_en);
+                         sl_en = malloc(sizeof(struct slave_entry));
+                         sl_en->last_iter = -1;
+                         sl_en->iter = -1;
+                         sl_en->start_pfn = -1;
+                         sl_en->len = -1;
+                         enqueue(sl_queue, (void *)sl_en);
                      }
 
                      /* master should sleep here */
