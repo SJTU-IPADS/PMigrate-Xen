@@ -20,6 +20,7 @@ static int error_out; /* boolean for mem tran error */
 
 
 struct slave_arg{
+<<<<<<< HEAD
             int io_fd_s;
             int hvm_s;
             int debug_s;
@@ -36,12 +37,41 @@ struct slave_arg{
 	    struct outbuf *ob;
 	    struct save_ctx *ctx;
         };
+=======
+    int io_fd_s;
+    int hvm_s;
+    int debug_s;
+    int live;
+    uint32_t dom_s;
+
+    unsigned long * to_send_s;
+    unsigned long * to_skip_s;
+    unsigned long * to_fix_s;
+
+    xc_interface * xch_s;
+
+    struct sync_queue * queue;
+    struct outbuf *ob;
+    struct save_ctx *ctx;
+};
+>>>>>>> 42ec82fb573cd6e8d464043ecfeda43aa341fd5f
 
 struct slave_ret {
     unsigned int send_this_batch;
     unsigned int skip_this_batch;
 };
 
+<<<<<<< HEAD
+=======
+struct slave_entry {
+    int last_iter;
+    int iter;
+    int start_pfn;
+    int len;
+};
+
+
+>>>>>>> 42ec82fb573cd6e8d464043ecfeda43aa341fd5f
 struct recieve_arg{
     //pagebuf_t *pagebuf;
     int io_fd;

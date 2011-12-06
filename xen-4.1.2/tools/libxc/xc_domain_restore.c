@@ -1103,6 +1103,10 @@ void* recieve_fun(void* arg){
             pthread_mutex_unlock(&ms_mutex);
         }
     }
+    pthread_mutex_lock(&ms_mutex);
+    sl_cont++;
+    pthread_mutex_unlock(&ms_mutex);
+    return NULL; /* TODO: what need to return?  */
 out:
     pthread_mutex_lock(&ms_mutex);
     error_out = -1;
@@ -1337,9 +1341,7 @@ loadpages:
         sl_entry = NULL;
 
         xc_report_progress_step(xch, n, dinfo->p2m_size);
-       
-        pthread_mutex_lock(&ms_mutex);
-
+     
         sl_entry = dequeue(sl_queue);
         if(!sl_entry){
             if(sl_cont == io_fd_num){ /* all slaves finished */
@@ -1349,8 +1351,7 @@ loadpages:
             }else
                 continue;
         }
-        pthread_mutex_unlock(&ms_mutex);
-
+     
         pagebuf = *(pagebuf_t *)sl_entry->entry;
 
         /*
