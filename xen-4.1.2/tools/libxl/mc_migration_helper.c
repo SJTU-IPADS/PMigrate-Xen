@@ -22,6 +22,7 @@ int parse_dest_file(char* dest_file, char*** dests, int* dest_cnt)
 				store_cnt = i;
 				goto out;
 			}
+			buf[strlen(buf) - 1] = '\0';
 			ip_store[i] = buf;
 			i++;
 		}
@@ -35,6 +36,7 @@ out:
 	return 0;
 }
 
+/* Change the Rune Command */
 int rune_add_ips(char** rune, char** dests, int dest_cnt)
 {
 	int i, len = BUFFER_INIT_SIZE, current;

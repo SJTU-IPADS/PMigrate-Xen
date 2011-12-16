@@ -2579,8 +2579,9 @@ static void migrate_domain(const char *domain_spec, char *rune,
 	}
 
 	/* TEST rune cat */
-	hprintf("rune is ---- %s\n", rune);
+	/*hprintf("rune is ---- %s\n", rune);
 	return;
+	*/
 
     save_domain_core_begin(domain_spec, override_config_file,
                            &config_data, &config_len);
