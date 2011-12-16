@@ -1,5 +1,7 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "mc_migration_helper.h"
 
 /* Parse the Migration Destination IP File */
@@ -30,6 +32,26 @@ int parse_dest_file(char* dest_file, char*** dests, int* dest_cnt)
 out:
 	*dests = ip_store;
 	*dest_cnt = store_cnt;
+	return 0;
+}
+
+int rune_add_ips(char** rune, char** dests, int dest_cnt)
+{
+	int i, len = BUFFER_INIT_SIZE, current;
+	char *a = malloc(BUFFER_INIT_SIZE);
+	bzero(a, BUFFER_INIT_SIZE);
+
+	/* Ignore the first */
+	for (i = 1; i < dest_cnt; i++) {
+		if ((current = strlen(dests[i]) + strlen(a) + 1) > len){
+			len = current * 2;
+			a = realloc(a, len);
+		}
+		a = strcat(a, " ");
+		a = strcat(a, dests[i]);
+	}
+
+	asprintf(rune, "%s %s", *rune, a);
 	return 0;
 }
 

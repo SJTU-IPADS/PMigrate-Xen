@@ -2554,8 +2554,11 @@ static void migration_child_report(pid_t migration_child, int recv_fd) {
     migration_child = 0;
 }
 
-static void migrate_domain(const char *domain_spec, const char *rune,
-                           const char *override_config_file)
+/* Roger */
+static void migrate_domain(const char *domain_spec, char *rune,
+                           const char *override_config_file, 
+						   /* Additional Parameter */
+						   char**dests, int dest_cnt)
 {
     pid_t child = -1;
     int rc;
@@ -2566,6 +2569,17 @@ static void migrate_domain(const char *domain_spec, const char *rune,
     char rc_buf;
     uint8_t *config_data;
     int config_len;
+
+	/* Roger, Multi Flag */
+	int multi = 0;
+	if ( dests ) {
+		multi = 1;
+		/* Add more ips to the rune */
+		rune_add_ips(&rune, dests, dest_cnt);
+	}
+
+	/* TEST rune cat */
+	hprintf("rune is ---- %s\n", rune);
 
     save_domain_core_begin(domain_spec, override_config_file,
                            &config_data, &config_len);
@@ -2965,7 +2979,7 @@ int main_migrate(int argc, char **argv)
     const char *ssh_command = "ssh";
     char *rune = NULL;
     char *host;
-	char **dests;
+	char **dests = NULL; 
     int opt, daemonize = 1, debug = 0, multi = 0;// Roger add multi
 	int dest_cnt = 0;
 
@@ -3010,18 +3024,20 @@ int main_migrate(int argc, char **argv)
 			fprintf(stderr, "Cannot read destination file\n");
 			return 2;
 		}
+		host = dests[0]; // First is the main Address
 	} else {
 		host = argv[optind + 1];
 	}
 
-	{
+	/* TEST */
+	/*{
 		int i;
 		hprintf("TEST destination file\n");
 		for (i = 0; i < dest_cnt; i++) {
 			hprintf("dest%d: %s\n", i, dests[i]);
 		}
 		return 2;
-	}
+	}*/
 
     if (!ssh_command[0]) {
         rune = host;
@@ -3033,7 +3049,7 @@ int main_migrate(int argc, char **argv)
             return 1;
     }
 
-    migrate_domain(p, rune, config_filename);
+    migrate_domain(p, rune, config_filename, dests, dest_cnt);
     return 0;
 }
 
