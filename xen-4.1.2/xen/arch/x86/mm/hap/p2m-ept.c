@@ -41,7 +41,7 @@
 #define dprintk(_f, _a...) \
     if (p2m_debug == 1) printk(_f, ## _a)
 #define hprintk(_f, _a...) \
-    if (p2m_hint == 1) printk(_f, ## _a_
+    if (p2m_hint == 1) printk(_f, ## _a_)
 
 #define atomic_read_ept_entry(__pepte)                              \
     ( (ept_entry_t) { .epte = atomic_read64(&(__pepte)->epte) } )

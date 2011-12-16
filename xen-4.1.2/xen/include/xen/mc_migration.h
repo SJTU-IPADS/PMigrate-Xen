@@ -41,5 +41,4 @@ struct mc_slave_data {
 
     atomic_t slave_cnt;
 };
-
 #endif

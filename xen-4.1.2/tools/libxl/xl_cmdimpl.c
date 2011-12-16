@@ -39,6 +39,15 @@
 #include "libxl_utils.h"
 #include "libxlutil.h"
 #include "xl.h"
+#include "mc_migration_helper.h"
+
+/* 
+ * Roger 
+ */
+#define dprintf(_f, _a...) \
+    if (mc_migrate_debug == 1) fprintf(stderr, _f, ## _a)
+#define hprintf(_f, _a...) \
+    if (mc_migrate_hint == 1) fprintf(stderr, _f, ## _a)
 
 #define CHK_ERRNO( call ) ({                                            \
         int chk_errno = (call);                                         \
@@ -2956,9 +2965,11 @@ int main_migrate(int argc, char **argv)
     const char *ssh_command = "ssh";
     char *rune = NULL;
     char *host;
-    int opt, daemonize = 1, debug = 0;
+	char **dests;
+    int opt, daemonize = 1, debug = 0, multi = 0;// Roger add multi
+	int dest_cnt = 0;
 
-    while ((opt = getopt(argc, argv, "hC:s:ed")) != -1) {
+    while ((opt = getopt(argc, argv, "hC:s:edm")) != -1) {
         switch (opt) {
         case 'h':
             help("migrate");
@@ -2975,6 +2986,10 @@ int main_migrate(int argc, char **argv)
         case 'd':
             debug = 1;
             break;
+		/* Turn on multi flag*/
+		case 'm':
+			multi = 1;
+			break;
         default:
             fprintf(stderr, "option `%c' not supported.\n", optopt);
             break;
@@ -2987,10 +3002,29 @@ int main_migrate(int argc, char **argv)
     }
 
     p = argv[optind];
-    host = argv[optind + 1];
+
+	if (multi) {
+		/* argv[optind + 1] is the destination file 
+		 * The first line the master address */
+		if (parse_dest_file(argv[optind + 1], &dests, &dest_cnt) < 0) {
+			fprintf(stderr, "Cannot read destination file\n");
+			return 2;
+		}
+	} else {
+		host = argv[optind + 1];
+	}
+
+	{
+		int i;
+		hprintf("TEST destination file\n");
+		for (i = 0; i < dest_cnt; i++) {
+			hprintf("dest%d: %s\n", i, dests[i]);
+		}
+		return 2;
+	}
 
     if (!ssh_command[0]) {
-        rune= host;
+        rune = host;
     } else {
         if (asprintf(&rune, "exec %s %s xl migrate-receive%s%s",
                      ssh_command, host,
