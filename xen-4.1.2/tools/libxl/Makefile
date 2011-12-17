@@ -19,6 +19,7 @@ LIBS = $(LDLIBS_libxenctrl) $(LDLIBS_libxenguest) $(LDLIBS_libxenstore) $(LDLIBS
 ifeq ($(CONFIG_Linux),y)
 LIBS += -luuid
 endif
+LIBS += -lpthread
 
 LIBXL_OBJS-y = osdeps.o libxl_paths.o libxl_bootloader.o flexarray.o
 ifeq ($(LIBXL_BLKTAP),y)

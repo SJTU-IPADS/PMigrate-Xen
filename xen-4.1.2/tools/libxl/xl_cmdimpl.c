@@ -34,6 +34,7 @@
 #include <xenctrl.h>
 #include <ctype.h>
 #include <inttypes.h>
+#include <pthread.h>
 
 #include "libxl.h"
 #include "libxl_utils.h"
@@ -2580,7 +2581,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
 
 	/* TEST rune cat */
 	hprintf("rune is ---- %s\n", rune);
-	return;
+	//return;
 
     save_domain_core_begin(domain_spec, override_config_file,
                            &config_data, &config_len);
@@ -2615,6 +2616,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
     signal(SIGPIPE, SIG_IGN);
     /* if receiver dies, we get an error and can clean up
        rather than just dying */
+	while(1);
 
     rc = migrate_read_fixedmessage(recv_fd, migrate_receiver_banner,
                                    sizeof(migrate_receiver_banner)-1,
@@ -2753,12 +2755,33 @@ static void core_dump_domain(const char *domain_spec, const char *filename)
     if (rc) { fprintf(stderr,"core dump failed (rc=%d)\n",rc);exit(-1); }
 }
 
-static void migrate_receive(int debug, int daemonize)
+static void* mig_patch(void* args)
+{
+	char* ip = (char*) args;
+	hprintf("Thread %d ip: %s", (int)(pthread_self()), ip);
+	return NULL;
+}
+
+/* Roger */
+static void migrate_receive(int debug, int daemonize,
+		/* Additional argument for Multi */
+		char** ips, int ip_cnt)
 {
     int rc, rc2;
     char rc_buf;
     char *migration_domname;
     struct domain_create dom_info;
+	int multi = (ips == NULL) ? 0 : 1;
+	pthread_t *pids = NULL;
+
+	if (multi) {
+		int i;
+		pids = (pthread_t*) malloc(sizeof(pthread_t) * ip_cnt);
+		for (i = 0; i < ip_cnt; i++){
+			pthread_create(pids + i, NULL, &mig_patch, ips[i]);
+		}
+	}
+	return;
 
     signal(SIGPIPE, SIG_IGN);
     /* if we get SIGPIPE we'd rather just have it as an error */
@@ -2909,10 +2932,12 @@ int main_restore(int argc, char **argv)
     return 0;
 }
 
+/* Roger */
 int main_migrate_receive(int argc, char **argv)
 {
     int debug = 0, daemonize = 1;
-    int opt;
+    int opt, i, multi = 0;
+	char ** ips = NULL;
 
     while ((opt = getopt(argc, argv, "hed")) != -1) {
         switch (opt) {
@@ -2932,11 +2957,27 @@ int main_migrate_receive(int argc, char **argv)
         }
     }
 
-    if (argc-optind != 0) {
+	/* As Roger add more args, Skip it */
+    /* if (argc-optind != 0) {
         help("migrate-receive");
         return 2;
-    }
-    migrate_receive(debug, daemonize);
+    }*/
+	if (argc - optind != 0) {
+		multi = 1;
+		ips = (char**) malloc(sizeof(char*) * (argc - optind));
+		for (i = optind; (argc - i) > 0; i++) {
+			char *buf = (char*)malloc(strlen(argv[i]));
+			strcpy(buf, argv[i]);
+			ips[argc - i] = buf;
+		}
+	}
+
+	/* Test IPs read */
+	for (i = 0; i < argc - optind; i++) {
+		hprintf("ip%d: %s", i, ips[i]);
+	}
+
+    migrate_receive(debug, daemonize, ips, argc - optind);
     return 0;
 }
 
