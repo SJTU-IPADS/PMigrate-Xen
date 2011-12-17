@@ -4,6 +4,7 @@
 
 #define BUFFER_INIT_SIZE 10
 #define DEFAULT_PORT 3344
+#define PAUSE while(1)
 
 enum {mc_migrate_debug = 0};
 enum {mc_migrate_hint = 1};

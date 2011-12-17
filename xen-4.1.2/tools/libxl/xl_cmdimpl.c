@@ -2636,7 +2636,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
     signal(SIGPIPE, SIG_IGN);
     /* if receiver dies, we get an error and can clean up
        rather than just dying */
-	while(1);
+	PAUSE;
 
     rc = migrate_read_fixedmessage(recv_fd, migrate_receiver_banner,
                                    sizeof(migrate_receiver_banner)-1,
@@ -2850,7 +2850,7 @@ static void migrate_receive(int debug, int daemonize,
                                    "migration ack stream",
                                    "banner") );
 
-	return;
+	PAUSE;
     memset(&dom_info, 0, sizeof(dom_info));
     dom_info.debug = debug;
     dom_info.daemonize = daemonize;
