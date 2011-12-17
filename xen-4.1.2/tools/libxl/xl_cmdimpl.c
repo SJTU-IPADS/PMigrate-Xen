@@ -2598,6 +2598,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
     child = libxl_fork(&ctx);
     if (child==-1) exit(1);
 
+	hprintf("After fork %d\n", child);
     if (!child) {
         dup2(sendpipe[0], 0);
         dup2(recvpipe[1], 1);
