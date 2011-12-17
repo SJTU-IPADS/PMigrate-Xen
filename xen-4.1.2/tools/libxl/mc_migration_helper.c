@@ -81,6 +81,7 @@ int mc_net_server(char* ip)
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(DEFAULT_PORT);
 	server_addr.sin_addr.s_addr = *((unsigned long *) host->h_addr_list[0]);
+	bzero(&(server_addr.sin_zero),8);
 
 	if (bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
 		fprintf(stderr, "Bind Error\n");
@@ -120,6 +121,7 @@ int mc_net_client(char* ip)
 	server_addr.sin_family = AF_INET;     
 	server_addr.sin_port = htons(DEFAULT_PORT);   
 	server_addr.sin_addr = *((struct in_addr *)host->h_addr);
+	bzero(&(server_addr.sin_zero),8);
 
 	if (connect(sock, (struct sockaddr *)&server_addr,
 				sizeof(struct sockaddr)) == -1) 
