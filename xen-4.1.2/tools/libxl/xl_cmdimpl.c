@@ -2759,7 +2759,7 @@ static void core_dump_domain(const char *domain_spec, const char *filename)
 static void* mig_patch(void* args)
 {
 	char* ip = (char*) args;
-	hprintf("Thread %d ip: %s", (int)(pthread_self()), ip);
+	hprintf("Thread ip: %s\n", ip);
 	return NULL;
 }
 
