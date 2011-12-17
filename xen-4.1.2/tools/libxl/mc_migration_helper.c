@@ -6,6 +6,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <errno.h>
 #include <netdb.h>
 #include "mc_migration_helper.h"
 
@@ -83,8 +84,8 @@ int mc_net_server(char* ip)
 	server_addr.sin_addr.s_addr = *((unsigned long *) host->h_addr_list[0]);
 	bzero(&(server_addr.sin_zero),8);
 
-	if (bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
-		fprintf(stderr, "Bind Error\n");
+	if (bind(sock, (struct sockaddr *)&server_addr, sizeof(struct sockaddr)) != 0) {
+		fprintf(stderr, "Bind Error: %s\n", strerror(errno));
 		return -1;
 	}
 	
