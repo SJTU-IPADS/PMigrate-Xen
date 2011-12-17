@@ -2756,10 +2756,17 @@ static void core_dump_domain(const char *domain_spec, const char *filename)
     if (rc) { fprintf(stderr,"core dump failed (rc=%d)\n",rc);exit(-1); }
 }
 
+/* Roger 
+ * Migration server slave thread enter point */
 static void* mig_patch(void* args)
 {
+	int conn;
 	char* ip = (char*) args;
 	hprintf("Thread ip: %s\n", ip);
+	if ((conn = mc_net_server(ip)) < 0) {
+		fprintf(stderr, "Net Server Error\n");
+		exit(-1);
+	}
 	return NULL;
 }
 

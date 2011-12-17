@@ -2,6 +2,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 #include "mc_migration_helper.h"
 
 /* Parse the Migration Destination IP File */
@@ -57,3 +62,37 @@ int rune_add_ips(char** rune, char** dests, int dest_cnt)
 	return 0;
 }
 
+/* Network Socket Connection */
+int mc_net_server(char* ip) 
+{
+	int sock, connect, addr_len;
+	struct sockaddr_in server_addr,client_addr;
+	struct hostent *host;
+
+	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
+		fprintf(stderr, "Create Socket Error\n");
+		return -1;
+	}
+
+	if ((host = gethostbyname(ip)) == NULL) {
+		fprintf(stderr, "Get Host By Ip Error\n");
+		return -1;
+	}
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_port = DEFAULT_PORT;
+	server_addr.sin_addr.s_addr = *((unsigned long *) host->h_addr_list[0]);
+
+	if (bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
+		fprintf(stderr, "Bind Error\n");
+		return -1;
+	}
+
+	if (listen(sock, 10) == -1) {
+		fprintf(stderr, "Listen Error\n");
+		return -1;
+	}
+
+	addr_len = sizeof(client_addr);
+	connect = accept(sock, (struct sockaddr *) &client_addr, (socklen_t*) &client_addr);
+	return connect;
+}
