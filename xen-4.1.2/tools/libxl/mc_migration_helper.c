@@ -79,13 +79,17 @@ int mc_net_server(char* ip)
 		return -1;
 	}
 	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = DEFAULT_PORT;
+	server_addr.sin_port = htons(DEFAULT_PORT);
 	server_addr.sin_addr.s_addr = *((unsigned long *) host->h_addr_list[0]);
 
 	if (bind(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
 		fprintf(stderr, "Bind Error\n");
 		return -1;
 	}
+	
+	pthread_mutex_lock(&slave_ready_banner.mutex);
+	slave_ready_banner.cnt++;
+	pthread_mutex_unlock(&slave_ready_banner.mutex);
 
 	if (listen(sock, 10) == -1) {
 		fprintf(stderr, "Listen Error\n");
@@ -95,4 +99,39 @@ int mc_net_server(char* ip)
 	addr_len = sizeof(client_addr);
 	connect = accept(sock, (struct sockaddr *) &client_addr, (socklen_t*) &client_addr);
 	return connect;
+}
+
+int mc_net_client(char* ip)
+{
+	struct hostent *host;
+	struct sockaddr_in server_addr;  
+	int sock;
+
+	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+		fprintf(stderr, "Create Socket Error\n");
+		return -1;
+	}
+
+	if ((host = gethostbyname(ip)) == NULL) {
+		fprintf(stderr, "Get Host Error\n");
+		return -1;
+	}
+
+	server_addr.sin_family = AF_INET;     
+	server_addr.sin_port = htons(DEFAULT_PORT);   
+	server_addr.sin_addr = *((struct in_addr *)host->h_addr);
+
+	if (connect(sock, (struct sockaddr *)&server_addr,
+				sizeof(struct sockaddr)) == -1) 
+	{
+		fprintf(stderr, "Connect Error\n");
+		return -1;
+	}
+	return sock;
+}
+
+void init_slave_ready_banner(void)
+{
+	slave_ready_banner.cnt = 0;
+	pthread_mutex_init(&slave_ready_banner.mutex, NULL);
 }

@@ -2556,6 +2556,24 @@ static void migration_child_report(pid_t migration_child, int recv_fd) {
 }
 
 /* Roger */
+static void* send_patch(void* args)
+{
+	char* ip = (char*) args;
+	int conn;
+	if ((conn = mc_net_client(ip)) < 0) {
+		fprintf(stderr, "Net Client Error\n");
+		exit(-1);
+	}
+
+	/* Test Net Connect */
+	{
+		char* buff;
+		asprintf(&buff, "I Guess your ip is %s\n", ip);
+		write(conn, buff, strlen(buff));
+	}
+}
+
+/* Roger */
 static void migrate_domain(const char *domain_spec, char *rune,
                            const char *override_config_file, 
 						   /* Additional Parameter */
@@ -2573,6 +2591,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
 
 	/* Roger, Multi Flag */
 	int multi = 0;
+	pthread_t *pids = NULL;
 	if ( dests ) {
 		multi = 1;
 		/* Add more ips to the rune */
@@ -2622,6 +2641,16 @@ static void migrate_domain(const char *domain_spec, char *rune,
     rc = migrate_read_fixedmessage(recv_fd, migrate_receiver_banner,
                                    sizeof(migrate_receiver_banner)-1,
                                    "banner", rune);
+	/* Create Slave to Connet */
+	{
+		int i;
+		pids = (pthread_t*) malloc(sizeof(pthread_t) * dest_cnt);
+		for (i = 0; i < dest_cnt; i++) {
+			pthread_create(pids + i, NULL, &send_patch, dests[i]);
+		}
+	}
+	
+	
     if (rc) {
         close(send_fd);
         migration_child_report(child, recv_fd);
@@ -2758,7 +2787,7 @@ static void core_dump_domain(const char *domain_spec, const char *filename)
 
 /* Roger 
  * Migration server slave thread enter point */
-static void* mig_patch(void* args)
+static void* receive_patch(void* args)
 {
 	int conn;
 	char* ip = (char*) args;
@@ -2767,6 +2796,17 @@ static void* mig_patch(void* args)
 		fprintf(stderr, "Net Server Error\n");
 		exit(-1);
 	}
+
+	/* Test Net Connect */
+	{
+		char* buff = (char*)malloc(100);
+		int cnt = 0; 
+		while (cnt == 0) {
+			cnt = read(conn, buff, 100);
+		}
+		hprintf("%s", buff);
+	}
+
 	return NULL;
 }
 
@@ -2784,15 +2824,23 @@ static void migrate_receive(int debug, int daemonize,
 
 	if (multi) {
 		int i;
+		init_slave_ready_banner(); // Init Ready Banner
 		pids = (pthread_t*) malloc(sizeof(pthread_t) * ip_cnt);
 		for (i = 0; i < ip_cnt; i++){
-			pthread_create(pids + i, NULL, &mig_patch, ips[i]);
+			pthread_create(pids + i, NULL, &receive_patch, ips[i]);
 		}
 	}
-	return;
 
     signal(SIGPIPE, SIG_IGN);
     /* if we get SIGPIPE we'd rather just have it as an error */
+
+	/* Make sure every slave is ready */
+	while(1) {
+		pthread_mutex_lock(&slave_ready_banner.mutex);
+		if (slave_ready_banner.cnt == ip_cnt)
+			break;
+		pthread_mutex_unlock(&slave_ready_banner.mutex);
+	}
 
     fprintf(stderr, "migration target: Ready to receive domain.\n");
 
@@ -2802,6 +2850,7 @@ static void migrate_receive(int debug, int daemonize,
                                    "migration ack stream",
                                    "banner") );
 
+	return;
     memset(&dom_info, 0, sizeof(dom_info));
     dom_info.debug = debug;
     dom_info.daemonize = daemonize;
