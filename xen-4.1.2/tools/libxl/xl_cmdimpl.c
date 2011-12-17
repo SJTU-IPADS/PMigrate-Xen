@@ -2969,13 +2969,13 @@ int main_migrate_receive(int argc, char **argv)
 		for (i = optind; (argc - i) > 0; i++) {
 			char *buf = (char*)malloc(strlen(argv[i]));
 			strcpy(buf, argv[i]);
-			ips[argc - i] = buf;
+			ips[i - optind] = buf;
 		}
 	}
 
 	/* Test IPs read */
 	for (i = 0; i < argc - optind; i++) {
-		hprintf("ip%d: %s", i, ips[i]);
+		hprintf("ip%d: %s\n", i, ips[i]);
 	}
 
     migrate_receive(debug, daemonize, ips, argc - optind);
