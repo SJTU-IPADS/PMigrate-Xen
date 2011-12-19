@@ -2630,7 +2630,6 @@ static void migrate_domain(const char *domain_spec, char *rune,
 	/* TEST rune cat */
 	hprintf("rune is ---- %s\n", rune);
 	//return;
-	signal(SIGSEGV, handler);
 
     save_domain_core_begin(domain_spec, override_config_file,
                            &config_data, &config_len);
@@ -2664,6 +2663,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
     recv_fd = recvpipe[0];
 
     signal(SIGPIPE, SIG_IGN);
+	signal(SIGSEGV, handler);
     /* if receiver dies, we get an error and can clean up
        rather than just dying */
 
@@ -2681,6 +2681,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
 		}
 	}
 	
+	ffprintf(mc_log, "Before PAUSE\n");
 	PAUSE;
 	
     if (rc) {
@@ -2885,7 +2886,7 @@ static void migrate_receive(int debug, int daemonize,
                                    sizeof(migrate_receiver_banner)-1,
                                    "migration ack stream",
                                    "banner") );
-
+	fprintf(stderr, "Before PAUSE\n");
 	PAUSE;
     memset(&dom_info, 0, sizeof(dom_info));
     dom_info.debug = debug;
