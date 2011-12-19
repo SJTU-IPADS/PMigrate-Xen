@@ -49,6 +49,8 @@
     if (mc_migrate_debug == 1) fprintf(stderr, _f, ## _a)
 #define hprintf(_f, _a...) \
     if (mc_migrate_hint == 1) fprintf(stderr, _f, ## _a)
+#define ffprintf(_file, _f, _a...) \
+	( fprintf(_file, _f, ## _a), fflush(_file) )
 
 #define CHK_ERRNO( call ) ({                                            \
         int chk_errno = (call);                                         \
@@ -2645,11 +2647,11 @@ static void migrate_domain(const char *domain_spec, char *rune,
        rather than just dying */
 	PAUSE;
 
-	fprintf(mc_log, "Before message Check\n");
+	ffprintf(mc_log, "Before message Check\n");
     rc = migrate_read_fixedmessage(recv_fd, migrate_receiver_banner,
                                    sizeof(migrate_receiver_banner)-1,
                                    "banner", rune);
-	fprintf(mc_log, "After message Check\n");
+	ffprintf(mc_log, "After message Check\n");
 	/* Create Slave to Connet */
 	{
 		int i;
