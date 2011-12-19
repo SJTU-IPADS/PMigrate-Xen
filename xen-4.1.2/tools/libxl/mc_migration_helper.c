@@ -127,7 +127,7 @@ int mc_net_client(char* ip)
 	if (connect(sock, (struct sockaddr *)&server_addr,
 				sizeof(struct sockaddr)) == -1) 
 	{
-		fprintf(mc_log, "Connect Error\n");
+		fprintf(mc_log, "Connect Error: %s\n", strerror(errno));
 		return -1;
 	}
 	return sock;
