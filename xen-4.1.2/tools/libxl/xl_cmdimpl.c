@@ -2817,6 +2817,7 @@ static void* receive_patch(void* args)
 		while (cnt == 0) {
 			cnt = read(conn, buff, 100);
 		}
+		buff[cnt] = '\0';
 		hprintf("%s", buff);
 	}
 
@@ -2840,6 +2841,7 @@ static void migrate_receive(int debug, int daemonize,
 		int i;
 		init_slave_ready_banner(); // Init Ready Banner
 		pids = (pthread_t*) malloc(sizeof(pthread_t) * ip_cnt);
+		fprintf(stderr, "ip_cnt is %d\n", ip_cnt);
 		for (i = 0; i < ip_cnt; i++){
 			pthread_create(pids + i, NULL, &receive_patch, ips[i]);
 		}
