@@ -2561,7 +2561,8 @@ static void* send_patch(void* args)
 	char* ip = (char*) args;
 	int conn;
 	if ((conn = mc_net_client(ip)) < 0) {
-		fprintf(stderr, "Net Client Error\n");
+		fprintf(mc_log, "Net Client Error\n");
+		fclose(mc_log);
 		exit(-1);
 	}
 
@@ -2569,6 +2570,8 @@ static void* send_patch(void* args)
 	{
 		char* buff;
 		asprintf(&buff, "I Guess your ip is %s\n", ip);
+		fprintf(mc_log, "Send Message: I Guess your ip is %s\n", ip);
+		fclose(mc_log);
 		write(conn, buff, strlen(buff));
 	}
 }
@@ -2589,6 +2592,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
     uint8_t *config_data;
     int config_len;
 
+
 	/* Roger, Multi Flag */
 	int multi = 0;
 	pthread_t *pids = NULL;
@@ -2596,6 +2600,9 @@ static void migrate_domain(const char *domain_spec, char *rune,
 		multi = 1;
 		/* Add more ips to the rune */
 		rune_add_ips(&rune, dests, dest_cnt);
+		if ((mc_log = fopen(LOGFILE, "w+")) < 0){
+			fprintf(stderr, "Log File Create Error\n");
+		}
 	}
 
 	/* TEST rune cat */

@@ -1,13 +1,18 @@
 #ifndef __MC_MIGRATION_HELPER_H__
 #define __MC_MIGRATION_HELPER_H__
 #include <pthread.h>
+#include <stdio.h>
 
 #define BUFFER_INIT_SIZE 10
 #define DEFAULT_PORT 3344
 #define PAUSE while(1)
+#define LOGFILE "log"
 
 enum {mc_migrate_debug = 0};
 enum {mc_migrate_hint = 1};
+
+/* MC Logfile */
+FILE *mc_log = NULL;
 
 typedef struct {
 	int cnt;

@@ -110,12 +110,12 @@ int mc_net_client(char* ip)
 	int sock;
 
 	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-		fprintf(stderr, "Create Socket Error\n");
+		fprintf(mc_log, "Create Socket Error\n");
 		return -1;
 	}
 
 	if ((host = gethostbyname(ip)) == NULL) {
-		fprintf(stderr, "Get Host Error\n");
+		fprintf(mc_log, "Get Host Error\n");
 		return -1;
 	}
 
@@ -127,7 +127,7 @@ int mc_net_client(char* ip)
 	if (connect(sock, (struct sockaddr *)&server_addr,
 				sizeof(struct sockaddr)) == -1) 
 	{
-		fprintf(stderr, "Connect Error\n");
+		fprintf(mc_log, "Connect Error\n");
 		return -1;
 	}
 	return sock;
