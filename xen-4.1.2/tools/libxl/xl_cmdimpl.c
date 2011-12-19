@@ -57,13 +57,15 @@
 static void handler(int sig) {
 	void *array[20];
 	size_t size;
+	int fd = open("backtrace", O_RDWR, O_CREAT);
 
 	/* get void*'s for all entries on the stack */
 	size = backtrace(array, 20);
 
 	/* print out all the frames to stderr */
 	fprintf(stderr, "Error: signal %d:\n", sig);
-	backtrace_symbols_fd(array, size, 2);
+	backtrace_symbols_fd(array, size, fd);
+	close(fd);
 	exit(1);
 }
 
