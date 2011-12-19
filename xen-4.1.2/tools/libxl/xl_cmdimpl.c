@@ -35,6 +35,7 @@
 #include <ctype.h>
 #include <inttypes.h>
 #include <pthread.h>
+#include <execinfo.h>
 
 #include "libxl.h"
 #include "libxl_utils.h"
@@ -51,6 +52,20 @@
     if (mc_migrate_hint == 1) fprintf(stderr, _f, ## _a)
 #define ffprintf(_file, _f, _a...) \
 	( fprintf(_file, _f, ## _a), fflush(_file) )
+
+/* Signal handler for debugging use */
+static void handler(int sig) {
+	void *array[20];
+	size_t size;
+
+	/* get void*'s for all entries on the stack */
+	size = backtrace(array, 20);
+
+	/* print out all the frames to stderr */
+	fprintf(stderr, "Error: signal %d:\n", sig);
+	backtrace_symbols_fd(array, size, 2);
+	exit(1);
+}
 
 #define CHK_ERRNO( call ) ({                                            \
         int chk_errno = (call);                                         \
@@ -2613,6 +2628,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
 	/* TEST rune cat */
 	hprintf("rune is ---- %s\n", rune);
 	//return;
+	signal(SIGSEGV, handler);
 
     save_domain_core_begin(domain_spec, override_config_file,
                            &config_data, &config_len);
@@ -2849,6 +2865,7 @@ static void migrate_receive(int debug, int daemonize,
 	}
 
     signal(SIGPIPE, SIG_IGN);
+	signal(SIGSEGV, handler);
     /* if we get SIGPIPE we'd rather just have it as an error */
 
 	/* Make sure every slave is ready */
