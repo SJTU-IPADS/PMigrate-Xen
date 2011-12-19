@@ -2576,6 +2576,7 @@ static void* send_patch(void* args)
 		fclose(mc_log);
 		write(conn, buff, strlen(buff));
 	}
+	PAUSE;
 	return NULL;
 }
 
