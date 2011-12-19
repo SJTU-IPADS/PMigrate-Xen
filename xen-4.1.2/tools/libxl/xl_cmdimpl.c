@@ -2819,6 +2819,7 @@ static void* receive_patch(void* args)
 		hprintf("%s", buff);
 	}
 
+	PAUSE;
 	return NULL;
 }
 

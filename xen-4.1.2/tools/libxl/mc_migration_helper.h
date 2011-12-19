@@ -7,6 +7,7 @@
 #define DEFAULT_PORT 3344
 #define PAUSE while(1)
 #define LOGFILE "log"
+#define MULTI_TRY 10
 
 enum {mc_migrate_debug = 0};
 enum {mc_migrate_hint = 1};

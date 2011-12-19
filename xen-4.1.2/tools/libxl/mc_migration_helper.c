@@ -108,6 +108,7 @@ int mc_net_client(char* ip)
 	struct hostent *host;
 	struct sockaddr_in server_addr;  
 	int sock;
+	int i;
 
 	if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		fprintf(mc_log, "Create Socket Error\n");
@@ -124,13 +125,18 @@ int mc_net_client(char* ip)
 	server_addr.sin_addr = *((struct in_addr *)host->h_addr);
 	bzero(&(server_addr.sin_zero),8);
 
-	if (connect(sock, (struct sockaddr *)&server_addr,
-				sizeof(struct sockaddr)) == -1) 
-	{
-		fprintf(mc_log, "Connect Error: %s\n", strerror(errno));
-		return -1;
+	/* Need to connect multi times */
+	for (i = 0; i < MULTI_TRY; i++) {
+		if (connect(sock, (struct sockaddr *)&server_addr,
+					sizeof(struct sockaddr)) == -1) 
+		{
+			continue;
+		}
+		return sock;
 	}
-	return sock;
+
+	fprintf(mc_log, "Connect Error: %s\n", strerror(errno));
+	return -1;
 }
 
 void init_slave_ready_banner(void)
