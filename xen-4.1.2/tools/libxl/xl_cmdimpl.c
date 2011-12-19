@@ -2586,13 +2586,13 @@ static void* send_patch(void* args)
 	}
 
 	/* Test Net Connect */
-	{
+	/*{
 		char* buff = malloc(100);
 		bzero(buff, 100);
 		sprintf(buff, "I Guess your ip is %s\n", ip);
 		fprintf(mc_log, "Send Message: I Guess your ip is %s\n", ip);
 		write(conn, buff, strlen(buff));
-	}
+	}*/
 	ffprintf(mc_log, "Child Before PAUSE\n");
 	fclose(mc_log);
 	PAUSE;
@@ -2832,7 +2832,7 @@ static void* receive_patch(void* args)
 	}
 
 	/* Test Net Connect */
-	{
+	/*{
 		char* buff = (char*)malloc(100);
 		int cnt = 0; 
 		while (cnt == 0) {
@@ -2840,7 +2840,7 @@ static void* receive_patch(void* args)
 		}
 		buff[cnt] = '\0';
 		hprintf("%s", buff);
-	}
+	}*/
 
 	fprintf(stderr, "Child Before PAUSE\n");
 	PAUSE;
