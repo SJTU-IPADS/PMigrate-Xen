@@ -2645,7 +2645,6 @@ static void migrate_domain(const char *domain_spec, char *rune,
     signal(SIGPIPE, SIG_IGN);
     /* if receiver dies, we get an error and can clean up
        rather than just dying */
-	PAUSE;
 
 	ffprintf(mc_log, "Before message Check\n");
     rc = migrate_read_fixedmessage(recv_fd, migrate_receiver_banner,
@@ -2661,6 +2660,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
 		}
 	}
 	
+	PAUSE;
 	
     if (rc) {
         close(send_fd);
