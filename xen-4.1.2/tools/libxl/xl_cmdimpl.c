@@ -2591,10 +2591,10 @@ static void* send_patch(void* args)
 		bzero(buff, 100);
 		sprintf(buff, "I Guess your ip is %s\n", ip);
 		fprintf(mc_log, "Send Message: I Guess your ip is %s\n", ip);
-		fclose(mc_log);
 		write(conn, buff, strlen(buff));
 	}
 	ffprintf(mc_log, "Child Before PAUSE\n");
+	fclose(mc_log);
 	PAUSE;
 	return NULL;
 }
