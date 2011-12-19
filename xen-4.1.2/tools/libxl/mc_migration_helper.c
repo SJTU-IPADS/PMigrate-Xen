@@ -100,7 +100,7 @@ int mc_net_server(char* ip)
 	}
 
 	addr_len = sizeof(client_addr);
-	if ((connect = accept(sock, (struct sockaddr *) &client_addr, (socklen_t*) &client_addr)) < 0) {
+	if ((connect = accept(sock, (struct sockaddr *) &client_addr, (socklen_t*) &addr_len)) < 0) {
 		fprintf(stderr, "Accept Error: %s\n", strerror(errno));
 	}
 	return connect;
