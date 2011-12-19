@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -99,7 +100,9 @@ int mc_net_server(char* ip)
 	}
 
 	addr_len = sizeof(client_addr);
-	connect = accept(sock, (struct sockaddr *) &client_addr, (socklen_t*) &client_addr);
+	if ((connect = accept(sock, (struct sockaddr *) &client_addr, (socklen_t*) &client_addr)) < 0) {
+		fprintf(stderr, "Accept Error: %s\n", strerror(errno));
+	}
 	return connect;
 }
 
@@ -130,6 +133,7 @@ int mc_net_client(char* ip)
 		if (connect(sock, (struct sockaddr *)&server_addr,
 					sizeof(struct sockaddr)) == -1) 
 		{
+			usleep(1000);
 			continue;
 		}
 		return sock;
