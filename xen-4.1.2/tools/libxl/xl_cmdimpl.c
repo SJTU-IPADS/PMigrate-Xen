@@ -2594,6 +2594,7 @@ static void* send_patch(void* args)
 		fclose(mc_log);
 		write(conn, buff, strlen(buff));
 	}
+	ffprintf(mc_log, "Child Before PAUSE\n");
 	PAUSE;
 	return NULL;
 }
@@ -2841,6 +2842,7 @@ static void* receive_patch(void* args)
 		hprintf("%s", buff);
 	}
 
+	fprintf(stderr, "Child Before PAUSE\n");
 	PAUSE;
 	return NULL;
 }
