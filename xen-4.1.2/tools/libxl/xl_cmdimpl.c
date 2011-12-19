@@ -2570,8 +2570,9 @@ static void* send_patch(void* args)
 
 	/* Test Net Connect */
 	{
-		char* buff;
-		asprintf(&buff, "I Guess your ip is %s\n", ip);
+		char* buff = malloc(100);
+		bzero(buff, 100);
+		sprintf(buff, "I Guess your ip is %s\n", ip);
 		fprintf(mc_log, "Send Message: I Guess your ip is %s\n", ip);
 		fclose(mc_log);
 		write(conn, buff, strlen(buff));
