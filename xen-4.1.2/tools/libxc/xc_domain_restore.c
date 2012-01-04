@@ -32,6 +32,17 @@
 
 #include <xen/hvm/ioreq.h>
 #include <xen/hvm/params.h>
+#include "../libxl/mc_migration_helper.h"
+
+/* 
+ * Roger 
+ */
+#define dprintf(_f, _a...) \
+    if (mc_migrate_debug == 1) fprintf(stderr, _f, ## _a)
+#define hprintf(_f, _a...) \
+    if (mc_migrate_hint == 1) fprintf(stderr, _f, ## _a)
+#define ffprintf(_file, _f, _a...) \
+	( fprintf(_file, _f, ## _a), fflush(_file) )
 
 struct restore_ctx {
     unsigned long max_mfn; /* max mfn of the current host machine */
@@ -1075,6 +1086,34 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
     free(pfn_err);
 
     return rc;
+}
+
+/* Roger 
+ * Migration server slave thread enter point */
+void* receive_patch(void* args)
+{
+	int conn;
+	char* ip = (char*) args;
+	hprintf("Thread ip: %s\n", ip);
+	if ((conn = mc_net_server(ip)) < 0) {
+		fprintf(stderr, "Net Server Error\n");
+		exit(-1);
+	}
+
+	/* Test Net Connect */
+	{
+		char* buff = (char*)malloc(100);
+		int cnt = 0; 
+		while (cnt == 0) {
+			cnt = read(conn, buff, 100);
+		}
+		buff[cnt] = '\0';
+		hprintf("%s", buff);
+	}
+
+	fprintf(stderr, "Child Before PAUSE\n");
+	PAUSE;
+	return NULL;
 }
 
 int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,

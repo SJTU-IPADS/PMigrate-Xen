@@ -33,6 +33,7 @@
 
 #include <xen/hvm/params.h>
 #include "xc_e820.h"
+#include "../libxl/mc_migration_helper.h"
 
 /*
 ** Default values for important tuning parameters. Can override by passing
@@ -894,6 +895,29 @@ static int save_tsc_info(xc_interface *xch, uint32_t dom, int io_fd)
          write_exact(io_fd, &incarn, sizeof(incarn)) )
         return -1;
     return 0;
+}
+
+/* 
+ * Roger 
+ * Sender Slave 
+ */
+void* send_patch(void* args)
+{
+	char* ip = (char*) args;
+	int conn;
+	if ((conn = mc_net_client(ip)) < 0) {
+		exit(-1);
+	}
+
+	/* Test Net Connect */
+	{
+		char* buff = malloc(100);
+		bzero(buff, 100);
+		sprintf(buff, "I Guess your ip is %s\n", ip);
+		write(conn, buff, strlen(buff));
+	}
+	PAUSE;
+	return NULL;
 }
 
 int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iters,

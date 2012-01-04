@@ -26,4 +26,6 @@ int rune_add_ips(char** rune, char** dests, int dest_cnt);
 int mc_net_server(char* ip);
 int mc_net_client(char* ip);
 void init_slave_ready_banner(void);
+void* send_patch(void* args);
+void* receive_patch(void* args);
 #endif

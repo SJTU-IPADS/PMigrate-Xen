@@ -2575,26 +2575,6 @@ static void migration_child_report(pid_t migration_child, int recv_fd) {
 }
 
 /* Roger */
-static void* send_patch(void* args)
-{
-	char* ip = (char*) args;
-	int conn;
-	if ((conn = mc_net_client(ip)) < 0) {
-		exit(-1);
-	}
-
-	/* Test Net Connect */
-	{
-		char* buff = malloc(100);
-		bzero(buff, 100);
-		sprintf(buff, "I Guess your ip is %s\n", ip);
-		write(conn, buff, strlen(buff));
-	}
-	PAUSE;
-	return NULL;
-}
-
-/* Roger */
 static void migrate_domain(const char *domain_spec, char *rune,
                            const char *override_config_file, 
 						   /* Additional Parameter */
@@ -2806,34 +2786,6 @@ static void core_dump_domain(const char *domain_spec, const char *filename)
     find_domain(domain_spec);
     rc=libxl_domain_core_dump(&ctx, domid, filename);
     if (rc) { fprintf(stderr,"core dump failed (rc=%d)\n",rc);exit(-1); }
-}
-
-/* Roger 
- * Migration server slave thread enter point */
-static void* receive_patch(void* args)
-{
-	int conn;
-	char* ip = (char*) args;
-	hprintf("Thread ip: %s\n", ip);
-	if ((conn = mc_net_server(ip)) < 0) {
-		fprintf(stderr, "Net Server Error\n");
-		exit(-1);
-	}
-
-	/* Test Net Connect */
-	{
-		char* buff = (char*)malloc(100);
-		int cnt = 0; 
-		while (cnt == 0) {
-			cnt = read(conn, buff, 100);
-		}
-		buff[cnt] = '\0';
-		hprintf("%s", buff);
-	}
-
-	fprintf(stderr, "Child Before PAUSE\n");
-	PAUSE;
-	return NULL;
 }
 
 /* Roger */
