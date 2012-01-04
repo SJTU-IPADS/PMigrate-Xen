@@ -12,9 +12,6 @@
 enum {mc_migrate_debug = 0};
 enum {mc_migrate_hint = 1};
 
-/* MC Logfile */
-FILE *mc_log = NULL;
-
 typedef struct {
 	int cnt;
 	pthread_mutex_t mutex;

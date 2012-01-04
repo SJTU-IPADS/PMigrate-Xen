@@ -2580,8 +2580,6 @@ static void* send_patch(void* args)
 	char* ip = (char*) args;
 	int conn;
 	if ((conn = mc_net_client(ip)) < 0) {
-		fprintf(mc_log, "Net Client Error\n");
-		fclose(mc_log);
 		exit(-1);
 	}
 
@@ -2590,11 +2588,8 @@ static void* send_patch(void* args)
 		char* buff = malloc(100);
 		bzero(buff, 100);
 		sprintf(buff, "I Guess your ip is %s\n", ip);
-		fprintf(mc_log, "Send Message: I Guess your ip is %s\n", ip);
 		write(conn, buff, strlen(buff));
 	}
-	ffprintf(mc_log, "Child Before PAUSE\n");
-	fclose(mc_log);
 	PAUSE;
 	return NULL;
 }
@@ -2623,9 +2618,6 @@ static void migrate_domain(const char *domain_spec, char *rune,
 		multi = 1;
 		/* Add more ips to the rune */
 		rune_add_ips(&rune, dests, dest_cnt);
-		if ((mc_log = fopen(LOGFILE, "w+")) < 0){
-			fprintf(stderr, "Log File Create Error\n");
-		}
 	}
 
 	/* TEST rune cat */
@@ -2668,11 +2660,9 @@ static void migrate_domain(const char *domain_spec, char *rune,
     /* if receiver dies, we get an error and can clean up
        rather than just dying */
 
-	ffprintf(mc_log, "Before message Check\n");
     rc = migrate_read_fixedmessage(recv_fd, migrate_receiver_banner,
                                    sizeof(migrate_receiver_banner)-1,
                                    "banner", rune);
-	ffprintf(mc_log, "After message Check\n");
 	/* Create Slave to Connet */
 	{
 		int i;
@@ -2682,7 +2672,6 @@ static void migrate_domain(const char *domain_spec, char *rune,
 		}
 	}
 	
-	ffprintf(mc_log, "Before PAUSE\n");
 	PAUSE;
 	
     if (rc) {
