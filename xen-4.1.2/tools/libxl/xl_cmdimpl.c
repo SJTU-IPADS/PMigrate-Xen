@@ -2643,6 +2643,11 @@ static void migrate_domain(const char *domain_spec, char *rune,
     rc = migrate_read_fixedmessage(recv_fd, migrate_receiver_banner,
                                    sizeof(migrate_receiver_banner)-1,
                                    "banner", rune);
+	/* Init Argument header */
+	send_argu_head = (struct list_item*)malloc(sizeof(struct list_item));
+	init_list_head(send_argu_head);
+	pthread_mutex_init(&send_argu_head_mutex, NULL);
+
 	/* Create Slave to Connet */
 	{
 		int i;
@@ -2651,8 +2656,6 @@ static void migrate_domain(const char *domain_spec, char *rune,
 			pthread_create(pids + i, NULL, &send_patch, dests[i]);
 		}
 	}
-	
-	PAUSE;
 	
     if (rc) {
         close(send_fd);

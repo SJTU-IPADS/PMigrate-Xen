@@ -145,3 +145,47 @@ void init_slave_ready_banner(void)
 	slave_ready_banner.cnt = 0;
 	pthread_mutex_init(&slave_ready_banner.mutex, NULL);
 }
+
+int init_list_head(struct list_item *list_head)
+{
+	list_head->item = NULL;
+	list_head->next = list_head;
+	list_head->prev = list_head;
+	return 0;
+}
+
+// Push it as first item
+int send_argu_enqueue(send_argu_t* argu)
+{
+	struct list_item *item;
+	
+	pthread_mutex_lock(&send_argu_head_mutex);
+	item = (struct list_item*)malloc(sizeof(struct list_item));
+	item->item = argu;
+
+	item->next = send_argu_head->next;
+	item->prev = send_argu_head;
+	item->next->prev = item;
+	send_argu_head->next = item;
+	pthread_mutex_unlock(&send_argu_head_mutex);
+
+	return 0;
+}
+
+int send_argu_dequeue(send_argu_t **argu) 
+{
+	struct list_item *item;
+
+	pthread_mutex_lock(&send_argu_head_mutex);
+	if (send_argu_head->next == send_argu_head) {
+		return -1;
+	}
+	item = send_argu_head->next;
+	*argu = (send_argu_t*)item->item; 
+	send_argu_head->next = item->next;
+	send_argu_head->next->prev = send_argu_head;
+	free(item);
+	pthread_mutex_unlock(&send_argu_head_mutex);
+
+	return 0;
+}

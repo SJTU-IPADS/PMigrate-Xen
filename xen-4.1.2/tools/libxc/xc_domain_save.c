@@ -56,11 +56,11 @@ struct save_ctx {
 };
 
 /* buffer for output */
-struct outbuf {
+/*struct outbuf {
     void* buf;
     size_t size;
     size_t pos;
-};
+};*/
 
 #define OUTBUF_SIZE (16384 * 1024)
 
@@ -905,18 +905,200 @@ void* send_patch(void* args)
 {
 	char* ip = (char*) args;
 	int conn;
+
+	unsigned int run, batch;
+	int j,hvm,debug, iter, last_iter, io_fd, live, race;
+    unsigned long *pfn_batch = NULL;
+	int *pfn_err = NULL;
+	xen_pfn_t *pfn_type = NULL;
+	send_argu_t *argu;
+    struct domain_info_context *dinfo;
+	struct save_ctx *ctx;
+	xc_interface *xch;
+    unsigned char *region_base;
+    struct outbuf ob;
+	char *page;
+
 	if ((conn = mc_net_client(ip)) < 0) {
 		exit(-1);
 	}
 
-	/* Test Net Connect */
-	{
-		char* buff = malloc(100);
-		bzero(buff, 100);
-		sprintf(buff, "I Guess your ip is %s\n", ip);
-		write(conn, buff, strlen(buff));
+#define wrexact(fd, buf, len) write_buffer(xch, last_iter, &ob, (fd), (buf), (len))
+#ifdef ratewrite
+#undef ratewrite
+#endif
+#define ratewrite(fd, live, buf, len) ratewrite_buffer(xch, last_iter, &ob, (fd), (live), (buf), (len))
+	
+	while(1) {
+
+		while (send_argu_dequeue(&argu) < 0) {
+			usleep(SLEEP_SHORT_TIME);
+		}
+		batch = argu->batch;
+		pfn_batch = argu->pfn_batch;
+		pfn_err = argu->pfn_err;
+		pfn_type = argu->pfn_type;
+		hvm = argu->hvm;
+		dinfo = argu->dinfo;
+		ctx = argu->ctx;
+		xch = argu->xch;
+		debug = argu->debug;
+		iter = argu->iter;
+		region_base = argu->region_base;
+		last_iter = argu->last_iter;
+		ob = argu->ob;
+		io_fd = conn;
+		live = argu->live;
+		page = argu->page;
+		
+
+		/* This code copied from origin master */
+		for ( run = j = 0; j < batch; j++ )
+		{
+			unsigned long gmfn = pfn_batch[j];
+
+			if ( !hvm )
+				gmfn = pfn_to_mfn(gmfn);
+
+			if ( pfn_err[j] )
+			{
+				if ( pfn_type[j] == XEN_DOMCTL_PFINFO_XTAB )
+					continue;
+				DPRINTF("map fail: page %i mfn %08lx err %d\n",
+						j, gmfn, pfn_err[j]);
+				pfn_type[j] = XEN_DOMCTL_PFINFO_XTAB;
+				continue;
+			}
+
+			if ( pfn_type[j] == XEN_DOMCTL_PFINFO_XTAB )
+			{
+				DPRINTF("type fail: page %i mfn %08lx\n", j, gmfn);
+				continue;
+			}
+
+			/* canonicalise mfn->pfn */
+			pfn_type[j] |= pfn_batch[j];
+			++run;
+
+			if ( debug )
+			{
+				if ( hvm )
+					DPRINTF("%d pfn=%08lx sum=%08lx\n",
+							iter,
+							pfn_type[j],
+							csum_page(region_base + (PAGE_SIZE*j)));
+				else
+					DPRINTF("%d pfn= %08lx mfn= %08lx [mfn]= %08lx"
+							" sum= %08lx\n",
+							iter,
+							pfn_type[j],
+							gmfn,
+							mfn_to_pfn(gmfn),
+							csum_page(region_base + (PAGE_SIZE*j)));
+			}
+		}
+
+		if ( !run )
+		{
+			munmap(region_base, batch*PAGE_SIZE);
+			continue; /* bail on this batch: no valid pages */
+		}
+
+		if ( wrexact(io_fd, &batch, sizeof(unsigned int)) )
+		{
+			PERROR("Error when writing to state file (2)");
+			goto out;
+		}
+
+		if ( sizeof(unsigned long) < sizeof(*pfn_type) )
+			for ( j = 0; j < batch; j++ )
+				((unsigned long *)pfn_type)[j] = pfn_type[j];
+		if ( wrexact(io_fd, pfn_type, sizeof(unsigned long)*batch) )
+		{
+			PERROR("Error when writing to state file (3)");
+			goto out;
+		}
+		if ( sizeof(unsigned long) < sizeof(*pfn_type) )
+			while ( --j >= 0 )
+				pfn_type[j] = ((unsigned long *)pfn_type)[j];
+
+		/* entering this loop, pfn_type is now in pfns (Not mfns) */
+		run = 0;
+		for ( j = 0; j < batch; j++ )
+		{
+			unsigned long pfn, pagetype;
+			void *spage = (char *)region_base + (PAGE_SIZE*j);
+
+			pfn      = pfn_type[j] & ~XEN_DOMCTL_PFINFO_LTAB_MASK;
+			pagetype = pfn_type[j] &  XEN_DOMCTL_PFINFO_LTAB_MASK;
+
+			if ( pagetype != 0 )
+			{
+				/* If the page is not a normal data page, write out any
+				   run of pages we may have previously acumulated */
+				if ( run )
+				{
+					if ( ratewrite(io_fd, live, 
+								(char*)region_base+(PAGE_SIZE*(j-run)), 
+								PAGE_SIZE*run) != PAGE_SIZE*run )
+					{
+						PERROR("Error when writing to state file (4a)"
+								" (errno %d)", errno);
+						goto out;
+					}                        
+					run = 0;
+				}
+			}
+
+			/* skip pages that aren't present */
+			if ( pagetype == XEN_DOMCTL_PFINFO_XTAB )
+				continue;
+
+			pagetype &= XEN_DOMCTL_PFINFO_LTABTYPE_MASK;
+
+			if ( (pagetype >= XEN_DOMCTL_PFINFO_L1TAB) &&
+					(pagetype <= XEN_DOMCTL_PFINFO_L4TAB) )
+			{
+				/* We have a pagetable page: need to rewrite it. */
+				race = 
+					canonicalize_pagetable(ctx, pagetype, pfn, spage, page); 
+
+				if ( race && !live )
+				{
+					ERROR("Fatal PT race (pfn %lx, type %08lx)", pfn,
+							pagetype);
+					goto out;
+				}
+
+				if ( ratewrite(io_fd, live, page, PAGE_SIZE) != PAGE_SIZE )
+				{
+					PERROR("Error when writing to state file (4b)"
+							" (errno %d)", errno);
+					goto out;
+				}
+			}
+			else
+			{
+				/* We have a normal page: accumulate it for writing. */
+				run++;
+			}
+		} /* end of the write out for this batch */
+
+		if ( run )
+		{
+			/* write out the last accumulated run of pages */
+			if ( ratewrite(io_fd, live, 
+						(char*)region_base+(PAGE_SIZE*(j-run)), 
+						PAGE_SIZE*run) != PAGE_SIZE*run )
+			{
+				PERROR("Error when writing to state file (4c)"
+						" (errno %d)", errno);
+				goto out;
+			}                        
+		}
 	}
-	PAUSE;
+
+out:
 	return NULL;
 }
 
@@ -930,7 +1112,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     int rc = 1, frc, i, j, last_iter = 0, iter = 0;
     int live  = (flags & XCFLAGS_LIVE);
     int debug = (flags & XCFLAGS_DEBUG);
-    int race = 0, sent_last_iter, skip_this_iter = 0;
+    int sent_last_iter, skip_this_iter = 0;
     unsigned int sent_this_iter = 0;
     int tmem_saved = 0;
 
@@ -1132,6 +1314,10 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         errno = ENOMEM;
         goto out;
     }
+	free(pfn_batch);
+	free(pfn_err);
+	free(pfn_type);
+
     memset(pfn_type, 0,
            ROUNDUP(MAX_BATCH_SIZE * sizeof(*pfn_type), PAGE_SHIFT));
 
@@ -1203,12 +1389,19 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     /* Now write out each data page, canonicalising page tables as we go... */
     for ( ; ; )
     {
-        unsigned int N, batch, run;
+        unsigned int N, batch;
         char reportbuf[80];
 
         snprintf(reportbuf, sizeof(reportbuf),
                  "Saving memory: iter %d (last sent %u skipped %u)",
                  iter, sent_this_iter, skip_this_iter);
+
+		// Every iteration need a new pfn_batch
+		pfn_err    = malloc(MAX_BATCH_SIZE * sizeof(*pfn_err));
+		pfn_batch = calloc(MAX_BATCH_SIZE, sizeof(*pfn_batch));
+		pfn_type   = malloc(ROUNDUP(MAX_BATCH_SIZE * sizeof(*pfn_type), PAGE_SHIFT));
+		memset(pfn_type, 0,
+				ROUNDUP(MAX_BATCH_SIZE * sizeof(*pfn_type), PAGE_SHIFT));
 
         xc_report_progress_start(xch, reportbuf, dinfo->p2m_size);
 
@@ -1347,6 +1540,27 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 goto out;
             }
 
+			/* batch, pfn_batch */
+			{
+				send_argu_t *argu = (send_argu_t*)malloc(sizeof(send_argu_t));
+				argu->batch = batch;
+				argu->pfn_batch = pfn_batch;
+				argu->pfn_err = pfn_err;
+				argu->pfn_type = pfn_type;
+				argu->hvm = hvm;
+				argu->dinfo = dinfo;
+				argu->ctx = ctx;
+				argu->xch = xch;
+				argu->debug = debug;
+				argu->iter = iter;
+				argu->region_base = region_base;
+				argu->last_iter = last_iter;
+				argu->ob = ob;
+				argu->live = live;
+				argu->page = page;
+				send_argu_enqueue(argu);
+			}
+#if 0
             for ( run = j = 0; j < batch; j++ )
             {
                 unsigned long gmfn = pfn_batch[j];
@@ -1490,6 +1704,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                     goto out;
                 }                        
             }
+#endif
 
             sent_this_iter += batch;
 
@@ -1988,7 +2203,8 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     xc_hypercall_buffer_free_pages(xch, to_skip, NRPAGES(BITMAP_SIZE));
 
     free(pfn_type);
-    free(pfn_batch);
+	/* Freed by slave */
+    //free(pfn_batch);
     free(pfn_err);
     free(to_fix);
 
