@@ -45,6 +45,11 @@
 #define DEF_MAX_ITERS   29   /* limit us to 30 times round loop   */
 #define DEF_MAX_FACTOR   3   /* never send more than 3x p2m_size  */
 
+// Roger: Send Slave Count (Including master)
+int slave_cnt = 0;
+// End of Transfter String
+static char *mc_end_string = "End of Translation";
+
 struct save_ctx {
     unsigned long hvirt_start; /* virtual starting address of the hypervisor */
     unsigned int pt_levels; /* #levels of page tables used by the current guest */
@@ -931,9 +936,22 @@ void* send_patch(void* args)
 	
 	while(1) {
 
-		while (send_argu_dequeue(&argu) < 0) {
-			usleep(SLEEP_SHORT_TIME);
+		while (send_argu_dequeue(&argu) < 0) { // Empty
+			pthread_mutex_lock(&sender_iter_banner.mutex);
+
+			// End of iteration
+			if (sender_iter_banner.cnt == (slave_cnt + 1)) {
+				pthread_mutex_unlock(&sender_iter_banner.mutex);
+				continue;
+			}
+			if (sender_iter_banner.cnt > 0) {
+				sender_iter_banner.cnt++;
+			} 
+
+			pthread_mutex_unlock(&sender_iter_banner.mutex);
+			//usleep(SLEEP_SHORT_TIME);
 		}
+
 		batch = argu->batch;
 		pfn_batch = argu->pfn_batch;
 		pfn_err = argu->pfn_err;
@@ -1712,6 +1730,22 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
         } /* end of this while loop for this iteration */
 
+		/* Every Iteration not skipped will pass Here */
+		pthread_mutex_lock(&sender_iter_banner.mutex);
+		sender_iter_banner.cnt++;
+		pthread_mutex_unlock(&sender_iter_banner.mutex);
+
+		/* Waite for every */
+		while (1){
+			pthread_mutex_lock(&sender_iter_banner.mutex);
+			if (sender_iter_banner.cnt != (slave_cnt + 1)) {
+				pthread_mutex_unlock(&sender_iter_banner.mutex);
+				continue;
+			}
+			sender_iter_banner.cnt = 0; // Reset
+			pthread_mutex_unlock(&sender_iter_banner.mutex);
+		}
+
       skip:
 
         xc_report_progress_step(xch, dinfo->p2m_size, dinfo->p2m_size);
@@ -1797,6 +1831,8 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     } /* end of infinite for loop */
 
     DPRINTF("All memory is saved\n");
+	/* Send end of memory to receiver */
+	ratewrite(0, 1, mc_end_string, strlen(mc_end_string));
 
     {
         struct {

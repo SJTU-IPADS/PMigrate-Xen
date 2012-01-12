@@ -1,4 +1,6 @@
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -90,9 +92,9 @@ int mc_net_server(char* ip)
 		return -1;
 	}
 	
-	pthread_mutex_lock(&slave_ready_banner.mutex);
-	slave_ready_banner.cnt++;
-	pthread_mutex_unlock(&slave_ready_banner.mutex);
+	pthread_mutex_lock(&receive_ready_banner.mutex);
+	receive_ready_banner.cnt++;
+	pthread_mutex_unlock(&receive_ready_banner.mutex);
 
 	if (listen(sock, 10) == -1) {
 		fprintf(stderr, "Listen Error\n");
@@ -140,10 +142,10 @@ int mc_net_client(char* ip)
 	return -1;
 }
 
-void init_slave_ready_banner(void)
+void init_banner(banner_t *banner)
 {
-	slave_ready_banner.cnt = 0;
-	pthread_mutex_init(&slave_ready_banner.mutex, NULL);
+	banner->cnt = 0;
+	pthread_mutex_init(&banner->mutex, NULL);
 }
 
 int init_list_head(struct list_item *list_head)

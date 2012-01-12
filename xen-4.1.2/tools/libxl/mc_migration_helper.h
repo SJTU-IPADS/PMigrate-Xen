@@ -7,7 +7,6 @@
 #define BUFFER_INIT_SIZE 10
 #define DEFAULT_PORT 3344
 #define PAUSE while(1)
-#define LOGFILE "log"
 #define MULTI_TRY 10
 
 #define SLEEP_SHORT_TIME 1000
@@ -18,7 +17,6 @@ enum {mc_migrate_hint = 1};
 typedef struct {
 	int cnt;
 	pthread_mutex_t mutex;
-	
 } banner_t;
 
 struct outbuf {
@@ -52,17 +50,20 @@ struct list_item {
 	struct list_item* prev;
 };
 
+/* Global Variable */
+// Receive Waiting for slave ready
+banner_t receive_ready_banner;
+// Sender Waiting for slave ready
+banner_t sender_iter_banner;
+// Argument in Send
 struct list_item *send_argu_head;
 pthread_mutex_t send_argu_head_mutex;
-
-/* Waiting for slave ready */
-banner_t slave_ready_banner;
 
 int parse_dest_file(char* dest_file, char*** dests, int* dest_cnt); 
 int rune_add_ips(char** rune, char** dests, int dest_cnt);
 int mc_net_server(char* ip);
 int mc_net_client(char* ip);
-void init_slave_ready_banner(void);
+void init_banner(banner_t *banner);
 void* send_patch(void* args);
 void* receive_patch(void* args);
 int init_list_head(struct list_item *list_head);

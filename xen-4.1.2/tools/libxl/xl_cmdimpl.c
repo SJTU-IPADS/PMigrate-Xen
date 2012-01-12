@@ -2652,6 +2652,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
 	{
 		int i;
 		pids = (pthread_t*) malloc(sizeof(pthread_t) * dest_cnt);
+		init_banner(&sender_iter_banner);
 		for (i = 0; i < dest_cnt; i++) {
 			pthread_create(pids + i, NULL, &send_patch, dests[i]);
 		}
@@ -2806,7 +2807,7 @@ static void migrate_receive(int debug, int daemonize,
 	signal(SIGSEGV, handler);
 	if (multi) {
 		int i;
-		init_slave_ready_banner(); // Init Ready Banner
+		init_banner(&receive_ready_banner); // Init Ready Banner
 		pids = (pthread_t*) malloc(sizeof(pthread_t) * ip_cnt);
 		fprintf(stderr, "ip_cnt is %d\n", ip_cnt);
 		for (i = 0; i < ip_cnt; i++){
@@ -2819,10 +2820,10 @@ static void migrate_receive(int debug, int daemonize,
 
 	/* Make sure every slave is ready */
 	while(1) {
-		pthread_mutex_lock(&slave_ready_banner.mutex);
-		if (slave_ready_banner.cnt == ip_cnt)
+		pthread_mutex_lock(&receive_ready_banner.mutex);
+		if (receive_ready_banner.cnt == ip_cnt)
 			break;
-		pthread_mutex_unlock(&slave_ready_banner.mutex);
+		pthread_mutex_unlock(&receive_ready_banner.mutex);
 	}
 
     fprintf(stderr, "migration target: Ready to receive domain.\n");
@@ -2832,8 +2833,6 @@ static void migrate_receive(int debug, int daemonize,
                                    sizeof(migrate_receiver_banner)-1,
                                    "migration ack stream",
                                    "banner") );
-	fprintf(stderr, "Before PAUSE\n");
-	PAUSE;
     memset(&dom_info, 0, sizeof(dom_info));
     dom_info.debug = debug;
     dom_info.daemonize = daemonize;
@@ -3054,6 +3053,8 @@ int main_save(int argc, char **argv)
     return 0;
 }
 
+extern int slave_cnt;
+
 int main_migrate(int argc, char **argv)
 {
     const char *p = NULL;
@@ -3107,6 +3108,7 @@ int main_migrate(int argc, char **argv)
 			return 2;
 		}
 		host = dests[0]; // First is the main Address
+		slave_cnt = dest_cnt; // Store in a global variable
 	} else {
 		host = argv[optind + 1];
 	}

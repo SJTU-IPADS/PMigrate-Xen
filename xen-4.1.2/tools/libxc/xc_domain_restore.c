@@ -44,6 +44,9 @@
 #define ffprintf(_file, _f, _a...) \
 	( fprintf(_file, _f, ## _a), fflush(_file) )
 
+// End of Transfter String
+//static char *mc_end_string = "End of Translation";
+
 struct restore_ctx {
     unsigned long max_mfn; /* max mfn of the current host machine */
     unsigned long hvirt_start; /* virtual starting address of the hypervisor */
