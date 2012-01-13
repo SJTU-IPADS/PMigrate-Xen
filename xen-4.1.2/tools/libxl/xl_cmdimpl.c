@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <syslog.h>
 #include <time.h>
 #include <getopt.h>
 #include <sys/types.h>
@@ -52,6 +53,12 @@
     if (mc_migrate_hint == 1) fprintf(stderr, _f, ## _a)
 #define ffprintf(_file, _f, _a...) \
 	( fprintf(_file, _f, ## _a), fflush(_file) )
+
+#if 1
+#define DPRINTF(_f, _a...) syslog( LOG_DEBUG, "[MC]" __FILE__ ":%d: " _f , __LINE__, ## _a )
+#else
+#define DPRINTF(_f, _a...) ((void)0)
+#endif
 
 /* Signal handler for debugging use */
 static void handler(int sig) {
@@ -2808,7 +2815,7 @@ static void migrate_receive(int debug, int daemonize,
 	if (multi) {
 		int i;
 		init_banner(&receive_ready_banner); // Init Ready Banner
-recv_pagebuf_head = (struct list_item*)malloc(sizeof(struct list_item));
+		recv_pagebuf_head = (struct list_item*)malloc(sizeof(struct list_item));
 		init_list_head(recv_pagebuf_head);
 		pthread_mutex_init(&recv_pagebuf_head_mutex, NULL);
 		pids = (pthread_t*) malloc(sizeof(pthread_t) * ip_cnt);
@@ -3016,7 +3023,7 @@ int main_migrate_receive(int argc, char **argv)
 
 	/* Test IPs read */
 	for (i = 0; i < argc - optind; i++) {
-		hprintf("ip%d: %s\n", i, ips[i]);
+		DPRINTF("ip%d: %s\n", i, ips[i]);
 	}
 
     migrate_receive(debug, daemonize, ips, argc - optind);
