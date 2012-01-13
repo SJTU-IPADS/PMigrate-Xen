@@ -2857,6 +2857,7 @@ static void migrate_receive(int debug, int daemonize,
                 " (code %d).\n", rc);
         exit(-rc);
     }
+	hprintf(stderr, "After Create Domain\n");
 
     fprintf(stderr, "migration target: Transfer complete,"
             " requesting permission to start domain.\n");
@@ -3023,7 +3024,7 @@ int main_migrate_receive(int argc, char **argv)
 
 	/* Test IPs read */
 	for (i = 0; i < argc - optind; i++) {
-		DPRINTF("ip%d: %s\n", i, ips[i]);
+		fprintf(stderr, "ip%d: %s\n", i, ips[i]);
 	}
 
     migrate_receive(debug, daemonize, ips, argc - optind);
