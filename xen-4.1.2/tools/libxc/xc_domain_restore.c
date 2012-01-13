@@ -1177,6 +1177,8 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 	mc_xch = xch;
 	mc_ctx = ctx;
 
+	hprintf("Enter Restore Doamin\n");
+
     pagebuf_init(&pagebuf);
     memset(&tailbuf, 0, sizeof(tailbuf));
     tailbuf.ishvm = hvm;
@@ -1297,6 +1299,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
     n = m = 0;
  loadpages:
 	
+	hprintf("Before For Loop\n");
     for ( ; ; )
     {
         int j, curbatch;
