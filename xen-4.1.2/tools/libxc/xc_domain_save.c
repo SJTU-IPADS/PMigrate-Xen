@@ -1358,7 +1358,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         goto out;
     }
 
-	hprintf("Write Out Recored\n");
+	hprintf("Write Out Recored, io_fd = %d\n", io_fd);
     /* Start writing out the saved-domain record. */
     if ( write_exact(io_fd, &dinfo->p2m_size, sizeof(unsigned long)) )
     {
