@@ -50,6 +50,25 @@ struct list_item {
 	struct list_item* prev;
 };
 
+typedef struct {
+    void* pages;
+    /* pages is of length nr_physpages, pfn_types is of length nr_pages */
+    unsigned int nr_physpages, nr_pages;
+
+    /* Types of the pfns in the current region */
+    unsigned long* pfn_types;
+
+    int verify;
+
+    int new_ctxt_format;
+    int max_vcpu_id;
+    uint64_t vcpumap;
+    uint64_t identpt;
+    uint64_t vm86_tss;
+    uint64_t console_pfn;
+    uint64_t acpi_ioport_location;
+} pagebuf_t;
+
 /* Global Variable */
 // Receive Waiting for slave ready
 banner_t receive_ready_banner;
@@ -58,6 +77,8 @@ banner_t sender_iter_banner;
 // Argument in Send
 struct list_item *send_argu_head;
 pthread_mutex_t send_argu_head_mutex;
+struct list_item *recv_pagebuf_head;
+pthread_mutex_t recv_pagebuf_head_mutex;
 
 int parse_dest_file(char* dest_file, char*** dests, int* dest_cnt); 
 int rune_add_ips(char** rune, char** dests, int dest_cnt);
@@ -69,4 +90,6 @@ void* receive_patch(void* args);
 int init_list_head(struct list_item *list_head);
 int send_argu_enqueue(send_argu_t* argu);
 int send_argu_dequeue(send_argu_t **argu);
+int recv_pagebuf_enqueue(pagebuf_t *pagebuf);
+int recv_pagebuf_dequeue(pagebuf_t **pagebuf);
 #endif

@@ -44,6 +44,11 @@
 #define ffprintf(_file, _f, _a...) \
 	( fprintf(_file, _f, ## _a), fflush(_file) )
 
+uint32_t mc_dom = 0;
+xc_interface *mc_xch = NULL;
+struct restore_ctx *mc_ctx = NULL;
+
+
 // End of Transfter String
 //static char *mc_end_string = "End of Translation";
 
@@ -667,24 +672,6 @@ static void tailbuf_free(tailbuf_t *buf)
         tailbuf_free_pv(&buf->u.pv);
 }
 
-typedef struct {
-    void* pages;
-    /* pages is of length nr_physpages, pfn_types is of length nr_pages */
-    unsigned int nr_physpages, nr_pages;
-
-    /* Types of the pfns in the current region */
-    unsigned long* pfn_types;
-
-    int verify;
-
-    int new_ctxt_format;
-    int max_vcpu_id;
-    uint64_t vcpumap;
-    uint64_t identpt;
-    uint64_t vm86_tss;
-    uint64_t console_pfn;
-    uint64_t acpi_ioport_location;
-} pagebuf_t;
 
 static int pagebuf_init(pagebuf_t* buf)
 {
@@ -723,6 +710,10 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
     case 0:
         // DPRINTF("Last batch read\n");
         return 0;
+
+	case XC_PARA_MIGR_END:
+		buf->nr_pages= -1;
+		return 0;
 
     case XC_SAVE_ID_ENABLE_VERIFY_MODE:
         DPRINTF("Entering page verify mode\n");
@@ -1097,25 +1088,27 @@ void* receive_patch(void* args)
 {
 	int conn;
 	char* ip = (char*) args;
-	hprintf("Thread ip: %s\n", ip);
+    pagebuf_t* pagebuf;
+
 	if ((conn = mc_net_server(ip)) < 0) {
 		fprintf(stderr, "Net Server Error\n");
 		exit(-1);
 	}
 
-	/* Test Net Connect */
-	{
-		char* buff = (char*)malloc(100);
-		int cnt = 0; 
-		while (cnt == 0) {
-			cnt = read(conn, buff, 100);
-		}
-		buff[cnt] = '\0';
-		hprintf("%s", buff);
+	while(mc_xch == NULL || mc_ctx == NULL || mc_dom == 0) {
+		sleep(SLEEP_SHORT_TIME);
 	}
 
-	fprintf(stderr, "Child Before PAUSE\n");
-	PAUSE;
+	pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
+    pagebuf_init(pagebuf);
+	while ( pagebuf_get_one(mc_xch, mc_ctx, pagebuf, conn, mc_dom) < 0 ) {
+		if (pagebuf->nr_pages < 0) {
+			break;
+		}
+		recv_pagebuf_enqueue(pagebuf);
+		pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
+		pagebuf_init(pagebuf);
+	}
 	return NULL;
 }
 
@@ -1183,9 +1176,15 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
     static struct restore_ctx *ctx = &_ctx;
     struct domain_info_context *dinfo = &ctx->dinfo;
 
+
+	mc_dom = dom;
+	mc_xch = xch;
+	mc_ctx = ctx;
+
     pagebuf_init(&pagebuf);
     memset(&tailbuf, 0, sizeof(tailbuf));
     tailbuf.ishvm = hvm;
+	
 
     /* For info only */
     ctx->nr_pfns = 0;
@@ -1301,18 +1300,23 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 
     n = m = 0;
  loadpages:
+	
     for ( ; ; )
     {
         int j, curbatch;
+		pagebuf_t *pagebuf_p;
 
         xc_report_progress_step(xch, n, dinfo->p2m_size);
 
+		// Roger
         if ( !ctx->completed ) {
-            pagebuf.nr_physpages = pagebuf.nr_pages = 0;
-            if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
+            //pagebuf.nr_physpages = pagebuf.nr_pages = 0;
+            /* if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
                 PERROR("Error when reading batch");
                 goto out;
-            }
+            } */
+			recv_pagebuf_dequeue(&pagebuf_p);
+			pagebuf = *pagebuf_p;
         }
         j = pagebuf.nr_pages;
 

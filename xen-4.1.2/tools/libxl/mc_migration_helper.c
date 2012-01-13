@@ -191,3 +191,38 @@ int send_argu_dequeue(send_argu_t **argu)
 
 	return 0;
 }
+
+int recv_pagebuf_enqueue(pagebuf_t *pagebuf)
+{
+	struct list_item *item;
+	
+	pthread_mutex_lock(&recv_pagebuf_head_mutex);
+	item = (struct list_item*)malloc(sizeof(struct list_item));
+	item->item = pagebuf;
+
+	item->next = recv_pagebuf_head->next;
+	item->prev = recv_pagebuf_head;
+	item->next->prev = item;
+	recv_pagebuf_head->next = item;
+	pthread_mutex_unlock(&recv_pagebuf_head_mutex);
+
+	return 0;
+}
+
+int recv_pagebuf_dequeue(pagebuf_t **pagebuf) 
+{
+	struct list_item *item;
+
+	pthread_mutex_lock(&recv_pagebuf_head_mutex);
+	if (recv_pagebuf_head->next == recv_pagebuf_head) {
+		return -1;
+	}
+	item = recv_pagebuf_head->next;
+	*pagebuf = (pagebuf_t *)item->item; 
+	recv_pagebuf_head->next = item->next;
+	recv_pagebuf_head->next->prev = recv_pagebuf_head;
+	free(item);
+	pthread_mutex_unlock(&recv_pagebuf_head_mutex);
+
+	return 0;
+}

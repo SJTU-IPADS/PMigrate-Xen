@@ -2808,6 +2808,9 @@ static void migrate_receive(int debug, int daemonize,
 	if (multi) {
 		int i;
 		init_banner(&receive_ready_banner); // Init Ready Banner
+recv_pagebuf_head = (struct list_item*)malloc(sizeof(struct list_item));
+		init_list_head(recv_pagebuf_head);
+		pthread_mutex_init(&recv_pagebuf_head_mutex, NULL);
 		pids = (pthread_t*) malloc(sizeof(pthread_t) * ip_cnt);
 		fprintf(stderr, "ip_cnt is %d\n", ip_cnt);
 		for (i = 0; i < ip_cnt; i++){
