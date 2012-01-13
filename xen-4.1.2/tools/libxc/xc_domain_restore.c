@@ -1317,9 +1317,11 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 			char buf[strlen(mc_end_string) + 1];
 			int buf_count = 0, sum = 0;
 			if (recv_pagebuf_dequeue(&pagebuf_p) < 0) {
+				hprintf("Queue is empty\n");
 				buf_count = read(0, &buf + sum, sizeof(buf) - sum);
 				sum += buf_count;
 				while ( sum > 0) {
+					hprintf("Read something from stdin\n");
 					sum += buf_count;
 					if (sum >= strlen(mc_end_string) &&
 							!strncmp(buf, mc_end_string, strlen(mc_end_string))) 
