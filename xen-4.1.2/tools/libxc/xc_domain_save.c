@@ -45,6 +45,14 @@
 #define DEF_MAX_ITERS   29   /* limit us to 30 times round loop   */
 #define DEF_MAX_FACTOR   3   /* never send more than 3x p2m_size  */
 
+/* 
+ * Roger 
+ */
+#define dprintf(_f, _a...) \
+    if (mc_migrate_debug == 1) fprintf(stderr, _f, ## _a)
+#define hprintf(_f, _a...) \
+    if (mc_migrate_hint == 1) fprintf(stderr, _f, ## _a)
+
 // Roger: Send Slave Count (Including master)
 int slave_cnt = 0;
 // Communicate End String
@@ -1191,7 +1199,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
     int completed = 0;
 
-	DPRINTF("Enter Domain Save\n");
+	hprintf("Enter Domain Save\n");
     if ( hvm && !callbacks->switch_qemu_logdirty )
     {
         ERROR("No switch_qemu_logdirty callback provided.");
