@@ -1256,7 +1256,8 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
         PERROR("read: p2m_size");
         goto out;
     }
-    DPRINTF("xc_domain_restore start: p2m_size = %lx\n", dinfo->p2m_size);
+    //DPRINTF("xc_domain_restore start: p2m_size = %lx\n", dinfo->p2m_size);
+    hprintf("xc_domain_restore start: p2m_size = %lx\n", dinfo->p2m_size);
 
     if ( !get_platform_info(xch, dom,
                             &ctx->max_mfn, &ctx->hvirt_start, &ctx->pt_levels, &dinfo->guest_width) )
@@ -1301,6 +1302,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
     region_mfn = malloc(ROUNDUP(MAX_BATCH_SIZE * sizeof(xen_pfn_t), PAGE_SHIFT));
     ctx->p2m_batch = malloc(ROUNDUP(MAX_BATCH_SIZE * sizeof(xen_pfn_t), PAGE_SHIFT));
 
+	hprintf("Alloc Some memory\n");
     if ( (ctx->p2m == NULL) || (pfn_type == NULL) ||
          (region_mfn == NULL) || (ctx->p2m_batch == NULL) )
     {

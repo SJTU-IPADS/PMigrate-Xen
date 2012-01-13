@@ -1366,6 +1366,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         goto out;
     }
 
+	hprintf("Finish Write Out Recorded\n");
     if ( !hvm )
     {
         int err = 0;
