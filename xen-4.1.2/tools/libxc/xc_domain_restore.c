@@ -114,7 +114,53 @@ static ssize_t rdexact(xc_interface *xch, struct restore_ctx *ctx,
     return 0;
 }
 
+static ssize_t mc_rdexact(xc_interface *xch, struct restore_ctx *ctx,
+                       int fd, void* buf, size_t size)
+{
+    size_t offset = 0;
+    ssize_t len;
+    struct timeval tv;
+    fd_set rfds;
+
+    while ( offset < size )
+    {
+        if ( ctx->completed ) {
+            /* expect a heartbeat every HEARBEAT_MS ms maximum */
+            tv.tv_sec = HEARTBEAT_MS / 1000;
+            tv.tv_usec = (HEARTBEAT_MS % 1000) * 1000;
+
+            FD_ZERO(&rfds);
+            FD_SET(fd, &rfds);
+            len = select(fd + 1, &rfds, NULL, NULL, &tv);
+            if ( len == -1 && errno == EINTR )
+                continue;
+            if ( !FD_ISSET(fd, &rfds) ) {
+                ERROR("read_exact_timed failed (select returned %zd)", len);
+                errno = ETIMEDOUT;
+                return -1;
+            }
+        }
+
+        len = read(fd, buf + offset, size - offset);
+        if ( (len == -1) && ((errno == EINTR) || (errno == EAGAIN)) )
+            continue;
+        /*if ( len == 0 ) {
+            ERROR("0-length read");
+            errno = 0;
+        }
+        if ( len <= 0 ) {
+            ERROR("read_exact_timed failed (read rc: %d, errno: %d)", len, errno);
+            return -1;
+        }*/
+        offset += len;
+    }
+
+    return 0;
+}
+
+
 #define RDEXACT(fd,buf,size) rdexact(xch, ctx, fd, buf, size)
+#define MCRDEXACT(fd,buf,size) mc_rdexact(xch, ctx, fd, buf, size)
 #else
 #define RDEXACT read_exact
 #endif
@@ -830,7 +876,7 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
         }
         buf->pfn_types = ptmp;
     }
-    if ( RDEXACT(fd, buf->pfn_types + oldcount, count * sizeof(*(buf->pfn_types)))) {
+    if ( MCRDEXACT(fd, buf->pfn_types + oldcount, count * sizeof(*(buf->pfn_types)))) {
         PERROR("Error when reading region pfn types");
         return -1;
     }
