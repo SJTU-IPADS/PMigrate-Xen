@@ -876,7 +876,7 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
         }
         buf->pfn_types = ptmp;
     }
-    if ( MCRDEXACT(fd, buf->pfn_types + oldcount, count * sizeof(*(buf->pfn_types)))) {
+    if ( RDEXACT(fd, buf->pfn_types + oldcount, count * sizeof(*(buf->pfn_types)))) {
         PERROR("Error when reading region pfn types");
         return -1;
     }
@@ -1251,7 +1251,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
     }
 
 	hprintf("Read p2m size, io_fd = %d\n", io_fd);
-    if ( RDEXACT(io_fd, &dinfo->p2m_size, sizeof(unsigned long)) )
+    if ( MCRDEXACT(io_fd, &dinfo->p2m_size, sizeof(unsigned long)) )
     {
         PERROR("read: p2m_size");
         goto out;
