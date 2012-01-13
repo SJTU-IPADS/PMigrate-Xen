@@ -47,6 +47,8 @@
 uint32_t mc_dom = 0;
 xc_interface *mc_xch = NULL;
 struct restore_ctx *mc_ctx = NULL;
+// Communicate End String
+static char *mc_end_string = "MC_END";
 
 
 // End of Transfter String
@@ -711,10 +713,6 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
         // DPRINTF("Last batch read\n");
         return 0;
 
-	case XC_PARA_MIGR_END:
-		buf->nr_pages= -1;
-		return 0;
-
     case XC_SAVE_ID_ENABLE_VERIFY_MODE:
         DPRINTF("Entering page verify mode\n");
         buf->verify = 1;
@@ -1102,13 +1100,11 @@ void* receive_patch(void* args)
 	pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
     pagebuf_init(pagebuf);
 	while ( pagebuf_get_one(mc_xch, mc_ctx, pagebuf, conn, mc_dom) < 0 ) {
-		if (pagebuf->nr_pages < 0) {
-			break;
-		}
 		recv_pagebuf_enqueue(pagebuf);
 		pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
 		pagebuf_init(pagebuf);
 	}
+
 	return NULL;
 }
 
@@ -1315,8 +1311,26 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
                 PERROR("Error when reading batch");
                 goto out;
             } */
-			recv_pagebuf_dequeue(&pagebuf_p);
-			pagebuf = *pagebuf_p;
+			char buf[strlen(mc_end_string) + 1];
+			int buf_count = 0, sum = 0;
+			if (recv_pagebuf_dequeue(&pagebuf_p) < 0) {
+				buf_count = read(0, &buf + sum, sizeof(buf) - sum);
+				sum += buf_count;
+				while ( sum > 0) {
+					sum += buf_count;
+					if (sum >= strlen(mc_end_string) &&
+							!strncmp(buf, mc_end_string, strlen(mc_end_string))) 
+					{
+						// End of Transfer, wait a while for end
+						usleep(SLEEP_LONG_TIME);
+						if (recv_pagebuf_dequeue(&pagebuf_p) < 0) {
+							goto mc_end;
+						}
+					}
+				}
+			} else {
+				pagebuf = *pagebuf_p;
+			}
         }
         j = pagebuf.nr_pages;
 
@@ -1368,6 +1382,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
             m = 0;
         }
     }
+mc_end:
 
     /*
      * Ensure we flush all machphys updates before potential PAE-specific

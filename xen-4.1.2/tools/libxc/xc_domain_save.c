@@ -47,8 +47,8 @@
 
 // Roger: Send Slave Count (Including master)
 int slave_cnt = 0;
-// End of Transfter String
-static char *mc_end_string = "End of Translation";
+// Communicate End String
+static char *mc_end_string = "MC_END";
 
 struct save_ctx {
     unsigned long hvirt_start; /* virtual starting address of the hypervisor */
@@ -1831,8 +1831,11 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     } /* end of infinite for loop */
 
     DPRINTF("All memory is saved\n");
+
 	/* Send end of memory to receiver */
-	ratewrite(0, 1, mc_end_string, strlen(mc_end_string));
+	{
+		wrexact(io_fd, mc_end_string, strlen(mc_end_string));
+	}
 
     {
         struct {

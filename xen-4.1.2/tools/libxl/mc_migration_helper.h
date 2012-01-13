@@ -10,6 +10,7 @@
 #define MULTI_TRY 10
 
 #define SLEEP_SHORT_TIME 1000
+#define SLEEP_LONG_TIME 1000000
 
 enum {mc_migrate_debug = 0};
 enum {mc_migrate_hint = 1};
@@ -77,6 +78,7 @@ banner_t sender_iter_banner;
 // Argument in Send
 struct list_item *send_argu_head;
 pthread_mutex_t send_argu_head_mutex;
+// Pagebuf in Recv
 struct list_item *recv_pagebuf_head;
 pthread_mutex_t recv_pagebuf_head_mutex;
 
