@@ -1242,6 +1242,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         goto out;
     }
 
+	DPRINTF("Domain is still running\n");
     /* Domain is still running at this point */
     if ( live )
     {
@@ -1286,6 +1287,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         }
     }
 
+	DPRINTF("Have disable page\n");
     last_iter = !live;
 
     /* pretend we sent all the pages last iteration */
@@ -1321,6 +1323,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         }
     }
 
+	DPRINTF("Analysis Phase\n");
     analysis_phase(xch, dom, ctx, HYPERCALL_BUFFER(to_skip), 0);
 
     pfn_type   = malloc(ROUNDUP(MAX_BATCH_SIZE * sizeof(*pfn_type), PAGE_SHIFT));
@@ -1346,6 +1349,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         goto out;
     }
 
+	DPRINTF("Write Out Recored\n");
     /* Start writing out the saved-domain record. */
     if ( write_exact(io_fd, &dinfo->p2m_size, sizeof(unsigned long)) )
     {
