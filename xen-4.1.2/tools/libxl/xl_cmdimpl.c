@@ -2857,7 +2857,7 @@ static void migrate_receive(int debug, int daemonize,
                 " (code %d).\n", rc);
         exit(-rc);
     }
-	hprintf(stderr, "After Create Domain\n");
+	hprintf("After Create Domain\n");
 
     fprintf(stderr, "migration target: Transfer complete,"
             " requesting permission to start domain.\n");
