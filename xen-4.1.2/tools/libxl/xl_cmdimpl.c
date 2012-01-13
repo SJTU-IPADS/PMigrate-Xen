@@ -1506,6 +1506,7 @@ static int create_domain(struct domain_create *dom_info)
         printf("Parsing config file %s\n", config_file);
 
     parse_config_data(config_file, config_data, config_len, &d_config, &d_config.dm_info);
+	hprintf("Parse_config_data\n");
 
     if (migrate_fd >= 0) {
         if (d_config.c_info.name) {
@@ -1534,6 +1535,7 @@ static int create_domain(struct domain_create *dom_info)
 
 start:
     domid = -1;
+	hprintf("Start Tag\n");
 
     rc = acquire_lock();
     if (rc < 0)
