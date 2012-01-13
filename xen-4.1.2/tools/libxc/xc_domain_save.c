@@ -1296,7 +1296,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         }
     }
 
-	hprint("Have disable page\n");
+	hprintf("Have disable page\n");
     last_iter = !live;
 
     /* pretend we sent all the pages last iteration */
