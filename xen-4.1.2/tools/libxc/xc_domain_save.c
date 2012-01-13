@@ -1191,6 +1191,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
     int completed = 0;
 
+	DPRINTF("Enter Domain Save\n");
     if ( hvm && !callbacks->switch_qemu_logdirty )
     {
         ERROR("No switch_qemu_logdirty callback provided.");
