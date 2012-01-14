@@ -18,6 +18,7 @@ enum {mc_migrate_hint = 1};
 typedef struct {
 	int cnt;
 	pthread_mutex_t mutex;
+	phtread_barrier_t barr;
 } banner_t;
 
 struct outbuf {
@@ -86,7 +87,7 @@ int parse_dest_file(char* dest_file, char*** dests, int* dest_cnt);
 int rune_add_ips(char** rune, char** dests, int dest_cnt);
 int mc_net_server(char* ip);
 int mc_net_client(char* ip);
-void init_banner(banner_t *banner);
+void init_banner(banner_t *banner, int count);
 void* send_patch(void* args);
 void* receive_patch(void* args);
 int init_list_head(struct list_item *list_head);

@@ -142,10 +142,13 @@ int mc_net_client(char* ip)
 	return -1;
 }
 
-void init_banner(banner_t *banner)
+void init_banner(banner_t *banner, int count)
 {
 	banner->cnt = 0;
 	pthread_mutex_init(&banner->mutex, NULL);
+	if (count > 0) {
+		pthread_barrier_init(&banner->barr, NULL, count);
+	}
 }
 
 int init_list_head(struct list_item *list_head)

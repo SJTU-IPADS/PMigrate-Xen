@@ -2661,7 +2661,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
 	{
 		int i;
 		pids = (pthread_t*) malloc(sizeof(pthread_t) * dest_cnt);
-		init_banner(&sender_iter_banner);
+		init_banner(&sender_iter_banner, dest_cnt + 1);
 		for (i = 0; i < dest_cnt; i++) {
 			pthread_create(pids + i, NULL, &send_patch, dests[i]);
 		}
@@ -2816,7 +2816,7 @@ static void migrate_receive(int debug, int daemonize,
 	signal(SIGSEGV, handler);
 	if (multi) {
 		int i;
-		init_banner(&receive_ready_banner); // Init Ready Banner
+		init_banner(&receive_ready_banner, 0); // Init Ready Banner
 		recv_pagebuf_head = (struct list_item*)malloc(sizeof(struct list_item));
 		init_list_head(recv_pagebuf_head);
 		pthread_mutex_init(&recv_pagebuf_head_mutex, NULL);

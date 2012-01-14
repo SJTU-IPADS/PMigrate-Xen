@@ -945,19 +945,9 @@ void* send_patch(void* args)
 	while(1) {
 
 		while (send_argu_dequeue(&argu) < 0) { // Empty
-			pthread_mutex_lock(&sender_iter_banner.mutex);
-
-			// End of iteration
-			if (sender_iter_banner.cnt == (slave_cnt + 1)) {
-				pthread_mutex_unlock(&sender_iter_banner.mutex);
-				continue;
-			}
 			if (sender_iter_banner.cnt > 0) {
-				sender_iter_banner.cnt++;
-			} 
-
-			pthread_mutex_unlock(&sender_iter_banner.mutex);
-			//usleep(SLEEP_SHORT_TIME);
+				pthread_barrier_wait(&sent_last_iter->barr);
+			}
 		}
 
 		batch = argu->batch;
@@ -1439,6 +1429,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         xc_report_progress_start(xch, reportbuf, dinfo->p2m_size);
 
         iter++;
+		hprintf("It's %dth iteration\n", iter);
         sent_this_iter = 0;
         skip_this_iter = 0;
         N = 0;
@@ -1555,6 +1546,8 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 batch++;
             }
 
+			hprintf("After Count Batch\n", iter);
+
             if ( batch == 0 )
                 goto skip; /* vanishingly unlikely... */
 
@@ -1573,6 +1566,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 goto out;
             }
 
+			hprintf("Befere Page Equeue\n", iter);
 			/* batch, pfn_batch */
 			{
 				send_argu_t *argu = (send_argu_t*)malloc(sizeof(send_argu_t));
@@ -1593,6 +1587,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 				argu->page = page;
 				send_argu_enqueue(argu);
 			}
+			hprintf("After Page Equeue\n", iter);
 #if 0
             for ( run = j = 0; j < batch; j++ )
             {
@@ -1744,22 +1739,14 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             munmap(region_base, batch*PAGE_SIZE);
 
         } /* end of this while loop for this iteration */
+		hprintf("Iteration End\n", iter);
 
 		/* Every Iteration not skipped will pass Here */
-		pthread_mutex_lock(&sender_iter_banner.mutex);
 		sender_iter_banner.cnt++;
-		pthread_mutex_unlock(&sender_iter_banner.mutex);
 
 		/* Waite for every */
-		while (1){
-			pthread_mutex_lock(&sender_iter_banner.mutex);
-			if (sender_iter_banner.cnt != (slave_cnt + 1)) {
-				pthread_mutex_unlock(&sender_iter_banner.mutex);
-				continue;
-			}
-			sender_iter_banner.cnt = 0; // Reset
-			pthread_mutex_unlock(&sender_iter_banner.mutex);
-		}
+		pthread_barrier_wait(&sender_iter_banner->barr);
+		sender_iter_banner.cnt = 0;
 
       skip:
 
