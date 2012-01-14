@@ -946,7 +946,7 @@ void* send_patch(void* args)
 
 		while (send_argu_dequeue(&argu) < 0) { // Empty
 			if (sender_iter_banner.cnt > 0) {
-				pthread_barrier_wait(&sent_last_iter->barr);
+				pthread_barrier_wait(&sender_iter_banner.barr);
 			}
 		}
 
@@ -1546,7 +1546,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 batch++;
             }
 
-			hprintf("After Count Batch\n", iter);
+			hprintf("After Count Batch\n");
 
             if ( batch == 0 )
                 goto skip; /* vanishingly unlikely... */
@@ -1566,7 +1566,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 goto out;
             }
 
-			hprintf("Befere Page Equeue\n", iter);
+			hprintf("Befere Page Equeue\n");
 			/* batch, pfn_batch */
 			{
 				send_argu_t *argu = (send_argu_t*)malloc(sizeof(send_argu_t));
@@ -1587,7 +1587,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 				argu->page = page;
 				send_argu_enqueue(argu);
 			}
-			hprintf("After Page Equeue\n", iter);
+			hprintf("After Page Equeue\n");
 #if 0
             for ( run = j = 0; j < batch; j++ )
             {
@@ -1739,13 +1739,13 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             munmap(region_base, batch*PAGE_SIZE);
 
         } /* end of this while loop for this iteration */
-		hprintf("Iteration End\n", iter);
+		hprintf("Iteration End\n");
 
 		/* Every Iteration not skipped will pass Here */
 		sender_iter_banner.cnt++;
 
 		/* Waite for every */
-		pthread_barrier_wait(&sender_iter_banner->barr);
+		pthread_barrier_wait(&sender_iter_banner.barr);
 		sender_iter_banner.cnt = 0;
 
       skip:
