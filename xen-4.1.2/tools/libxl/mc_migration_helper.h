@@ -18,7 +18,7 @@ enum {mc_migrate_hint = 1};
 typedef struct {
 	int cnt;
 	pthread_mutex_t mutex;
-	phtread_barrier_t barr;
+	pthread_barrier_t barr;
 } banner_t;
 
 struct outbuf {
