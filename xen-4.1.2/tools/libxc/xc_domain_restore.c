@@ -1140,7 +1140,7 @@ void* receive_patch(void* args)
 	}
 
 	while(mc_xch == NULL || mc_ctx == NULL || mc_dom == 0) {
-		sleep(SLEEP_SHORT_TIME);
+		usleep(SLEEP_SHORT_TIME);
 	}
 
 	pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
