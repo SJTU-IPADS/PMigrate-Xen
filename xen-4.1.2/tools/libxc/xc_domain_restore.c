@@ -1144,6 +1144,19 @@ void* receive_patch(void* args)
 		exit(-1);
 	}
 
+	/* Rread Test */
+	{
+		char buf[10];
+		while(read(conn,buf,"SB") <= 0) {
+			usleep(SLEEP_LONG_TIME);
+		}
+		if (strncmp(buf, "SB", 2) == 0) {
+			hprintf("Slave Pass connect test\n");
+		} else {
+			hprintf("Slave connect Error\n");
+		}
+	}
+
 	hprintf("Slave connect success\n");
 	while(mc_xch == NULL || mc_ctx == NULL || mc_dom == 0) {
 		usleep(SLEEP_SHORT_TIME);

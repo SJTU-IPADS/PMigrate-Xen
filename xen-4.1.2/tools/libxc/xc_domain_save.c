@@ -937,6 +937,13 @@ void* send_patch(void* args)
 		exit(-1);
 	}
 
+	io_fd = conn;
+	/* Write Test */
+	if( write(io_fd, "SB", sizeof("SB")) == sizeof("SB")) {
+		// Do nothing
+	} else {
+		hprintf("Connect Error\n");
+	}
 	hprintf("Slave connect success\n");
 #define wrexact(fd, buf, len) write_buffer(xch, last_iter, &ob, (fd), (buf), (len))
 #ifdef ratewrite
@@ -973,7 +980,6 @@ void* send_patch(void* args)
 		region_base = argu->region_base;
 		last_iter = argu->last_iter;
 		ob = argu->ob;
-		io_fd = conn;
 		live = argu->live;
 		page = argu->page;
 		
