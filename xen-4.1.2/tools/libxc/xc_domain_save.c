@@ -1348,8 +1348,9 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 	free(pfn_err);
 	free(pfn_type);
 
-    memset(pfn_type, 0,
+    /*memset(pfn_type, 0,
            ROUNDUP(MAX_BATCH_SIZE * sizeof(*pfn_type), PAGE_SHIFT));
+		   */
 
     /* Setup the mfn_to_pfn table mapping */
     if ( !(ctx->live_m2p = xc_map_m2p(xch, ctx->max_mfn, PROT_READ, &ctx->m2p_mfn0)) )
