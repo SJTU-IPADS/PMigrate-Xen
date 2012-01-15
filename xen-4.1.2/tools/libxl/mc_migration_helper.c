@@ -189,6 +189,7 @@ int send_argu_dequeue(send_argu_t **argu)
 
 	pthread_mutex_lock(&send_argu_head_mutex);
 	if (send_argu_head->next == send_argu_head) {
+		pthread_mutex_unlock(&send_argu_head_mutex);
 		return -1;
 	}
 	item = send_argu_head->next;
@@ -224,6 +225,7 @@ int recv_pagebuf_dequeue(pagebuf_t **pagebuf)
 
 	pthread_mutex_lock(&recv_pagebuf_head_mutex);
 	if (recv_pagebuf_head->next == recv_pagebuf_head) {
+		pthread_mutex_unlock(&recv_pagebuf_head_mutex);
 		return -1;
 	}
 	item = recv_pagebuf_head->next;
