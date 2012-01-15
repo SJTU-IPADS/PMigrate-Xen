@@ -1139,9 +1139,11 @@ void* receive_patch(void* args)
 		exit(-1);
 	}
 
+	hprintf("Slave connect success\n");
 	while(mc_xch == NULL || mc_ctx == NULL || mc_dom == 0) {
 		usleep(SLEEP_SHORT_TIME);
 	}
+	hprintf("Slave Ready\n");
 
 	pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
     pagebuf_init(pagebuf);

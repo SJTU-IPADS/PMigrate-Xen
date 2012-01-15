@@ -936,6 +936,7 @@ void* send_patch(void* args)
 		exit(-1);
 	}
 
+	hprintf("Slave connect success\n");
 #define wrexact(fd, buf, len) write_buffer(xch, last_iter, &ob, (fd), (buf), (len))
 #ifdef ratewrite
 #undef ratewrite
@@ -944,11 +945,14 @@ void* send_patch(void* args)
 	
 	while(1) {
 
+		hprintf("Slave into loop\n");
 		while (send_argu_dequeue(&argu) < 0) { // Empty
 			if (sender_iter_banner.cnt > 0) {
 				pthread_barrier_wait(&sender_iter_banner.barr);
 			}
+			usleep(SLEEP_SHORT_TIME);
 		}
+		hprintf("Slave Read Data\n");
 
 		batch = argu->batch;
 		pfn_batch = argu->pfn_batch;
