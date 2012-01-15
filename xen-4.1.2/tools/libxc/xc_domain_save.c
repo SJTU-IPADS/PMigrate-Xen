@@ -24,6 +24,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <strings.h>
 #include <sys/time.h>
 
 #include "xc_private.h"
@@ -982,6 +983,9 @@ void* send_patch(void* args)
 		ob = argu->ob;
 		live = argu->live;
 		page = argu->page;
+
+		// Debug
+		bzero(argu, sizeof(argu));
 
 		hprintf("region_base is %p\n", region_base);
 		
