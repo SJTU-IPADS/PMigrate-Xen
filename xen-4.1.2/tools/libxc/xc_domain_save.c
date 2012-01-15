@@ -1067,6 +1067,7 @@ void* send_patch(void* args)
 					{
 						PERROR("Error when writing to state file (4a)"
 								" (errno %d)", errno);
+						hprintf("1: j = %d, run = %d\n", j, run);
 						goto out;
 					}                        
 					run = 0;
@@ -1097,6 +1098,7 @@ void* send_patch(void* args)
 				{
 					PERROR("Error when writing to state file (4b)"
 							" (errno %d)", errno);
+					hprintf("2: j = %d, run = %d\n", j, run);
 					goto out;
 				}
 			}
