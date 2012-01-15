@@ -1558,7 +1558,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 batch++;
             }
 
-			hprintf("After Count Batch\n");
+			//hprintf("After Count Batch\n");
 
             if ( batch == 0 )
                 goto skip; /* vanishingly unlikely... */
