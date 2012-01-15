@@ -920,14 +920,14 @@ void* send_patch(void* args)
 	int conn;
 
 	unsigned int run, batch;
-	int j,hvm,debug, iter, last_iter, io_fd, live, race;
+	int j,hvm,debug, iter, last_iter = 0, io_fd, live, race;
     unsigned long *pfn_batch = NULL;
 	int *pfn_err = NULL;
 	xen_pfn_t *pfn_type = NULL;
 	send_argu_t *argu;
     struct domain_info_context *dinfo;
 	struct save_ctx *ctx;
-	xc_interface *xch;
+	xc_interface *xch = NULL;
     unsigned char *region_base;
     struct outbuf ob;
 	char *page;
