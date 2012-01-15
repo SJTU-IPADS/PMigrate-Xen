@@ -54,9 +54,6 @@
 #define ffprintf(_file, _f, _a...) \
 	( fprintf(_file, _f, ## _a), fflush(_file) )
 
-// Receive slave Count
-int recv_slave_cnt = 0;
-
 #if 1
 #define DPRINTF(_f, _a...) syslog( LOG_DEBUG, "[MC]" __FILE__ ":%d: " _f , __LINE__, ## _a )
 #else

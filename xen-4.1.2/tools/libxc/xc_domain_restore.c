@@ -49,9 +49,6 @@ xc_interface *mc_xch = NULL;
 struct restore_ctx *mc_ctx = NULL;
 // Communicate End String
 static char *mc_end_string = "MC_END";
-// Receive Finish Count
-static int recv_finish_cnt = 0;
-extern int recv_slave_cnt;
 
 
 // End of Transfter String
