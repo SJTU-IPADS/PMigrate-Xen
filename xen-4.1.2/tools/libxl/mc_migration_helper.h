@@ -82,6 +82,12 @@ pthread_mutex_t send_argu_head_mutex;
 // Pagebuf in Recv
 struct list_item *recv_pagebuf_head;
 pthread_mutex_t recv_pagebuf_head_mutex;
+// Receive Finish Count
+int recv_finish_cnt = 0;
+pthread_mutex_t recv_finish_cnt_mutex;
+// Receive slave Count
+int recv_slave_cnt = 0;
+
 
 int parse_dest_file(char* dest_file, char*** dests, int* dest_cnt); 
 int rune_add_ips(char** rune, char** dests, int dest_cnt);

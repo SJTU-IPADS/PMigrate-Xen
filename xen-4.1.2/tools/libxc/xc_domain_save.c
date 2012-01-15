@@ -950,6 +950,7 @@ void* send_patch(void* args)
 		while (send_argu_dequeue(&argu) < 0) { // Empty
 			if (sender_iter_banner.cnt > 0) {
 				pthread_barrier_wait(&sender_iter_banner.barr);
+				goto out;
 			}
 			usleep(SLEEP_SHORT_TIME);
 		}
@@ -1120,6 +1121,10 @@ void* send_patch(void* args)
 	}
 
 out:
+	{
+		int flag = XC_PARA_MIGR_END;
+		wrexact(conn, &flag, sizeof(flag));
+	}
 	return NULL;
 }
 
