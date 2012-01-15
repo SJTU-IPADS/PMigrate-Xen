@@ -932,6 +932,7 @@ void* send_patch(void* args)
     struct outbuf ob;
 	char *page;
 
+	hprintf("Slave start to connect\n");
 	if ((conn = mc_net_client(ip)) < 0) {
 		exit(-1);
 	}

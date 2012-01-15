@@ -1134,6 +1134,7 @@ void* receive_patch(void* args)
 	char* ip = (char*) args;
     pagebuf_t* pagebuf;
 
+	hprintf("Slave start to connect\n");
 	if ((conn = mc_net_server(ip)) < 0) {
 		fprintf(stderr, "Net Server Error\n");
 		exit(-1);
