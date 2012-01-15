@@ -1129,7 +1129,7 @@ void* send_patch(void* args)
 			{
 				PERROR("Error when writing to state file (4c)"
 						" (errno %d)", errno);
-				hprintf("3: j = %d, run = %d\n", j, run);
+				hprintf("3: j = %d, run = %d, region_base = %p\n", j, run, region_base);
 				goto out;
 			}                        
 		}
@@ -1447,12 +1447,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                  "Saving memory: iter %d (last sent %u skipped %u)",
                  iter, sent_this_iter, skip_this_iter);
 
-		// Every iteration need a new pfn_batch
-		pfn_err    = malloc(MAX_BATCH_SIZE * sizeof(*pfn_err));
-		pfn_batch = calloc(MAX_BATCH_SIZE, sizeof(*pfn_batch));
-		pfn_type   = malloc(ROUNDUP(MAX_BATCH_SIZE * sizeof(*pfn_type), PAGE_SHIFT));
-		memset(pfn_type, 0,
-				ROUNDUP(MAX_BATCH_SIZE * sizeof(*pfn_type), PAGE_SHIFT));
 
         xc_report_progress_start(xch, reportbuf, dinfo->p2m_size);
 
@@ -1465,6 +1459,13 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         while ( N < dinfo->p2m_size )
         {
             xc_report_progress_step(xch, N, dinfo->p2m_size);
+
+			// Every iteration need a new pfn_batch
+			pfn_err    = malloc(MAX_BATCH_SIZE * sizeof(*pfn_err));
+			pfn_batch = calloc(MAX_BATCH_SIZE, sizeof(*pfn_batch));
+			pfn_type   = malloc(ROUNDUP(MAX_BATCH_SIZE * sizeof(*pfn_type), PAGE_SHIFT));
+			memset(pfn_type, 0,
+					ROUNDUP(MAX_BATCH_SIZE * sizeof(*pfn_type), PAGE_SHIFT));
 
             if ( !last_iter )
             {
