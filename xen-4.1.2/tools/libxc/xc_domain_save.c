@@ -953,7 +953,7 @@ void* send_patch(void* args)
 	
 	while(1) {
 
-		hprintf("Slave into loop\n");
+		//hprintf("Slave into loop\n");
 		while (send_argu_dequeue(&argu) < 0) { // Empty
 			if (sender_iter_banner.cnt ==  1) {
 				hprintf("Slave Meet Barrier\n");
@@ -965,7 +965,7 @@ void* send_patch(void* args)
 			}
 			usleep(SLEEP_SHORT_TIME);
 		}
-		hprintf("Slave Read Data\n");
+		//hprintf("Slave Read Data\n");
 
 		batch = argu->batch;
 		pfn_batch = argu->pfn_batch;
@@ -1078,7 +1078,7 @@ void* send_patch(void* args)
 					{
 						PERROR("Error when writing to state file (4a)"
 								" (errno %d)", errno);
-						hprintf("1: j = %d, run = %d\n", j, run);
+						hprintf("1: j = %d, run = %d, region_base = %p\n", j, run, region_base);
 						goto out;
 					}                        
 					run = 0;
