@@ -949,6 +949,7 @@ void* send_patch(void* args)
 		hprintf("Slave into loop\n");
 		while (send_argu_dequeue(&argu) < 0) { // Empty
 			if (sender_iter_banner.cnt > 0) {
+				hprintf("Slave Meet Barrier\n");
 				pthread_barrier_wait(&sender_iter_banner.barr);
 				goto out;
 			}
@@ -1577,7 +1578,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 goto out;
             }
 
-			hprintf("Befere Page Equeue\n");
+			//hprintf("Befere Page Equeue\n");
 			/* batch, pfn_batch */
 			{
 				send_argu_t *argu = (send_argu_t*)malloc(sizeof(send_argu_t));
@@ -1598,7 +1599,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 				argu->page = page;
 				send_argu_enqueue(argu);
 			}
-			hprintf("After Page Equeue\n");
+			//hprintf("After Page Equeue\n");
 #if 0
             for ( run = j = 0; j < batch; j++ )
             {
@@ -1758,6 +1759,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 		/* Waite for every */
 		pthread_barrier_wait(&sender_iter_banner.barr);
 		sender_iter_banner.cnt = 0;
+		hprintf("Finish Iteration End Barrier\n");
 
       skip:
 
