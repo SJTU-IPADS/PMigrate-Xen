@@ -13,6 +13,9 @@
 #include <netdb.h>
 #include "mc_migration_helper.h"
 
+#define hprintf(_f, _a...) \
+    if (mc_migrate_hint == 1) ( fprintf(stderr, _f, ## _a), fflush(stderr) )
+
 /* Parse the Migration Destination IP File */
 int parse_dest_file(char* dest_file, char*** dests, int* dest_cnt) 
 {
@@ -163,7 +166,9 @@ int send_argu_enqueue(send_argu_t* argu)
 {
 	struct list_item *item;
 	
+	hprintf("Arug Enqueue 1\n");
 	pthread_mutex_lock(&send_argu_head_mutex);
+	hprintf("Arug Enqueue 2\n");
 	item = (struct list_item*)malloc(sizeof(struct list_item));
 	item->item = argu;
 
@@ -171,7 +176,9 @@ int send_argu_enqueue(send_argu_t* argu)
 	item->prev = send_argu_head;
 	item->next->prev = item;
 	send_argu_head->next = item;
+	hprintf("Arug Enqueue 3\n");
 	pthread_mutex_unlock(&send_argu_head_mutex);
+	hprintf("Arug Enqueue 4\n");
 
 	return 0;
 }
