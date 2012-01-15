@@ -1147,7 +1147,7 @@ void* receive_patch(void* args)
 	/* Rread Test */
 	{
 		char buf[10];
-		while(read(conn,buf,"SB") <= 0) {
+		while(read(conn,buf,sizeof("SB")) <= 0) {
 			usleep(SLEEP_LONG_TIME);
 		}
 		if (strncmp(buf, "SB", 2) == 0) {
