@@ -1152,7 +1152,8 @@ void* receive_patch(void* args)
 
 	pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
     pagebuf_init(pagebuf);
-	while ( pagebuf_get_one(mc_xch, mc_ctx, pagebuf, conn, mc_dom) < 0 ) {
+	while ( pagebuf_get_one(mc_xch, mc_ctx, pagebuf, conn, mc_dom) > 0 ) {
+		hprintf("Slave Read Page\n");
 		if (pagebuf->nr_pages < 0) {
 			pthread_mutex_lock(&recv_finish_cnt_mutex);
 			recv_finish_cnt++;
@@ -1163,6 +1164,7 @@ void* receive_patch(void* args)
 		pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
 		pagebuf_init(pagebuf);
 	}
+	hprintf("Slave Finish\n");
 
 	return NULL;
 }

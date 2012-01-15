@@ -948,8 +948,11 @@ void* send_patch(void* args)
 
 		hprintf("Slave into loop\n");
 		while (send_argu_dequeue(&argu) < 0) { // Empty
-			if (sender_iter_banner.cnt > 0) {
+			if (sender_iter_banner.cnt ==  1) {
 				hprintf("Slave Meet Barrier\n");
+				pthread_barrier_wait(&sender_iter_banner.barr);
+			} else if (sender_iter_banner.cnt ==  2) {
+				hprintf("Slave Meet End Barrier\n");
 				pthread_barrier_wait(&sender_iter_banner.barr);
 				goto out;
 			}
@@ -1757,7 +1760,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 		hprintf("Iteration End\n");
 
 		/* Every Iteration not skipped will pass Here */
-		sender_iter_banner.cnt++;
+		sender_iter_banner.cnt = 1;
 
 		/* Waite for every */
 		pthread_barrier_wait(&sender_iter_banner.barr);
@@ -1852,7 +1855,9 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
 	/* Send end of memory to receiver */
 	{
+		sender_iter_banner.cnt = 2;
 		wrexact(io_fd, mc_end_string, strlen(mc_end_string));
+		pthread_barrier_wait(&sender_iter_banner.barr);
 	}
 
     {
