@@ -1145,7 +1145,7 @@ void* receive_patch(void* args)
 	}
 
 	/* Rread Test */
-	{
+	/*{
 		char buf[10];
 		while(read(conn,buf,sizeof("SB")) <= 0) {
 			usleep(SLEEP_LONG_TIME);
@@ -1155,7 +1155,7 @@ void* receive_patch(void* args)
 		} else {
 			hprintf("Slave connect Error\n");
 		}
-	}
+	}*/
 
 	hprintf("Slave connect success\n");
 	while(mc_xch == NULL || mc_ctx == NULL || mc_dom == 0) {

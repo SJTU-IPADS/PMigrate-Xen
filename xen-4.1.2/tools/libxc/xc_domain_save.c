@@ -939,11 +939,11 @@ void* send_patch(void* args)
 
 	io_fd = conn;
 	/* Write Test */
-	if( write(io_fd, "SB", sizeof("SB")) == sizeof("SB")) {
+	/*if( write(io_fd, "SB", sizeof("SB")) == sizeof("SB")) {
 		// Do nothing
 	} else {
 		hprintf("Connect Error\n");
-	}
+	}*/
 	hprintf("Slave connect success\n");
 #define wrexact(fd, buf, len) write_buffer(xch, last_iter, &ob, (fd), (buf), (len))
 #ifdef ratewrite
@@ -982,6 +982,8 @@ void* send_patch(void* args)
 		ob = argu->ob;
 		live = argu->live;
 		page = argu->page;
+
+		hprintf("region_base is %p, the first data is %c\n", region_base, region_base[0]);
 		
 
 		/* This code copied from origin master */
