@@ -40,7 +40,7 @@
 #define dprintf(_f, _a...) \
     if (mc_migrate_debug == 1) fprintf(stderr, _f, ## _a)
 #define hprintf(_f, _a...) \
-    if (mc_migrate_hint == 1) fprintf(stderr, "Restore:" _f, ## _a)
+    if (mc_migrate_hint == 1) ( fprintf(stderr, "Restore:" _f, ## _a), fflush(stderr) )
 #define ffprintf(_file, _f, _a...) \
 	( fprintf(_file, _f, ## _a), fflush(_file) )
 

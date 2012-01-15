@@ -51,7 +51,7 @@
 #define dprintf(_f, _a...) \
     if (mc_migrate_debug == 1) fprintf(stderr, _f, ## _a)
 #define hprintf(_f, _a...) \
-    if (mc_migrate_hint == 1) fprintf(stderr, "Save:" _f, ## _a)
+    if (mc_migrate_hint == 1) ( fprintf(stderr, "Save:" _f, ## _a), fflush(stderr) )
 
 // Roger: Send Slave Count (Including master)
 int slave_cnt = 0;
