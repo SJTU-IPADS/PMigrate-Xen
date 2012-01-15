@@ -1134,7 +1134,7 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
  * Migration server slave thread enter point */
 void* receive_patch(void* args)
 {
-	int conn;
+	int conn, pagecount;
 	char* ip = (char*) args;
     pagebuf_t* pagebuf;
 
@@ -1165,8 +1165,8 @@ void* receive_patch(void* args)
 
 	pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
     pagebuf_init(pagebuf);
-	while ( pagebuf_get_one(mc_xch, mc_ctx, pagebuf, conn, mc_dom) > 0 ) {
-		hprintf("Slave Read Page\n");
+	while ( (pagecount = pagebuf_get_one(mc_xch, mc_ctx, pagebuf, conn, mc_dom)) > 0 ) {
+		//hprintf("Slave Read Page\n");
 		if (pagebuf->nr_pages < 0) {
 			pthread_mutex_lock(&recv_finish_cnt_mutex);
 			recv_finish_cnt++;
@@ -1398,6 +1398,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 
 				pthread_mutex_lock(&recv_finish_cnt_mutex);
 				if (recv_finish_cnt < recv_slave_cnt) {
+					pthread_mutex_unlock(&recv_finish_cnt_mutex);
 					usleep(SLEEP_LONG_TIME);
 					continue;
 				} else {
@@ -1411,11 +1412,10 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 						{
 							// End of Transfer, wait a while for end
 							usleep(SLEEP_SHORT_TIME);
-							if (recv_pagebuf_dequeue(&pagebuf_p) < 0) {
-								goto mc_end;
-							}
 						}
 					}
+					pthread_mutex_unlock(&recv_finish_cnt_mutex);
+					goto mc_end;
 				}
 				pthread_mutex_unlock(&recv_finish_cnt_mutex);
 			} 

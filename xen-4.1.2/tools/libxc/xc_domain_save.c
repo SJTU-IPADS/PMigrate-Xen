@@ -1591,7 +1591,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 PERROR("map batch failed");
                 goto out;
             }
-			hprintf("region_base is %p\n", region_base);
+			//hprintf("region_base is %p\n", region_base);
 
             /* Get page types */
             if ( xc_get_pfn_type_batch(xch, dom, batch, pfn_type) )
