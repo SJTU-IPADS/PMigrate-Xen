@@ -1133,6 +1133,8 @@ void* send_patch(void* args)
 				goto out;
 			}                        
 		}
+
+		munmap(region_base, batch*PAGE_SIZE);
 	}
 
 out:
@@ -1761,8 +1763,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 #endif
 
             sent_this_iter += batch;
-
-            munmap(region_base, batch*PAGE_SIZE);
 
         } /* end of this while loop for this iteration */
 		hprintf("Iteration End\n");
