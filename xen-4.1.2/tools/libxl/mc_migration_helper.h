@@ -82,6 +82,7 @@ pthread_mutex_t send_argu_head_mutex;
 // Pagebuf in Recv
 struct list_item *recv_pagebuf_head;
 pthread_mutex_t recv_pagebuf_head_mutex;
+pthread_mutex_t recv_finish_cnt_mutex;
 
 
 int parse_dest_file(char* dest_file, char*** dests, int* dest_cnt); 

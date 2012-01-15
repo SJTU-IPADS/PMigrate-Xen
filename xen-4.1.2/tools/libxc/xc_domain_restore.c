@@ -51,7 +51,6 @@ struct restore_ctx *mc_ctx = NULL;
 static char *mc_end_string = "MC_END";
 // Receive Finish Count
 static int recv_finish_cnt = 0;
-static pthread_mutex_t recv_finish_cnt_mutex;
 extern int recv_slave_cnt;
 
 
