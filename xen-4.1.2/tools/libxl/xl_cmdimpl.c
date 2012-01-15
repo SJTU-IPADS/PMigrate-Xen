@@ -71,7 +71,7 @@ static void handler(int sig) {
 
 	/* print out all the frames to stderr */
 	fprintf(stderr, "Error: signal %d:\n", sig);
-	backtrace_symbols_fd(array, size, stderr);
+	backtrace_symbols_fd(array, size, 2);
 	close(fd);
 	exit(1);
 }
