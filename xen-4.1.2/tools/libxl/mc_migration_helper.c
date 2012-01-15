@@ -52,8 +52,7 @@ int rune_add_ips(char** rune, char** dests, int dest_cnt)
 	char *a = malloc(BUFFER_INIT_SIZE);
 	bzero(a, BUFFER_INIT_SIZE);
 
-	/* Ignore the first */
-	for (i = 1; i < dest_cnt; i++) {
+	for (i = 0; i < dest_cnt; i++) {
 		if ((current = strlen(dests[i]) + strlen(a) + 1) > len){
 			len = current * 2;
 			a = realloc(a, len);
