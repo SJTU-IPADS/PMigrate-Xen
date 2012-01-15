@@ -983,7 +983,7 @@ void* send_patch(void* args)
 		live = argu->live;
 		page = argu->page;
 
-		hprintf("region_base is %p, the first data is %c\n", region_base, region_base[0]);
+		hprintf("region_base is %p\n", region_base);
 		
 
 		/* This code copied from origin master */
