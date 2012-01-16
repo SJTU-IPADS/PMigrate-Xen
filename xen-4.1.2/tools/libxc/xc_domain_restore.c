@@ -48,7 +48,7 @@ uint32_t mc_dom = 0;
 xc_interface *mc_xch = NULL;
 struct restore_ctx *mc_ctx = NULL;
 // Communicate End String
-static char *mc_end_string = "MC_END";
+//static char *mc_end_string = "MC_END";
 
 
 // End of Transfter String
@@ -1400,8 +1400,8 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
                 PERROR("Error when reading batch");
                 goto out;
             } */
-			char buf[strlen(mc_end_string) + 1];
-			int buf_count = 0, sum = 0;
+			//char buf[strlen(mc_end_string) + 1];
+			//int buf_count = 0, sum = 0;
 			while (recv_pagebuf_dequeue(&pagebuf_p) < 0) {
 				hprintf("Queue is empty\n");
 
@@ -1412,25 +1412,26 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 					usleep(SLEEP_LONG_TIME);
 					continue;
 				} else {
-					buf_count = read(io_fd, buf + sum, strlen(mc_end_string) - sum);
-					sum += buf_count;
-					while ( sum > 0) {
-						hprintf("Read something from stdin\n");
+					//buf_count = read(io_fd, buf + sum, strlen(mc_end_string) - sum);
+					//sum += buf_count;
+					/* while ( sum > 0) {
+						 hprintf("Read something from stdin\n");
 						if ( sum >= strlen(mc_end_string)) //&& 
 								//!strncmp(buf, mc_end_string, strlen(mc_end_string) - 1)) 
-						{ 
+						{ */ 
 							// End of Transfer, wait a while for end
-							pthread_mutex_unlock(&recv_finish_cnt_mutex);
-							goto mc_end;
-						}
+					pthread_mutex_unlock(&recv_finish_cnt_mutex);
+					goto mc_end;
+						/* }
 						buf_count = read(io_fd, buf + sum, strlen(mc_end_string) - sum);
 						sum += buf_count;
 						hprintf("sum is %d, buf_count is %d, buf = %s\n", sum, buf_count, buf);
+						
 						if ( sum >= strlen(mc_end_string) ) {
 							hprintf("A\n");
 						} else {
 							hprintf("B\n");
-						}
+						}*/
 
 						/* if( !strncmp(buf, mc_end_string, strlen(mc_end_string) - 1) ) {
 							hprintf("C\n");
