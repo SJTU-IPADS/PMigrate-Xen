@@ -761,7 +761,7 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
 
 	case XC_PARA_MIGR_END: 
 		buf->nr_pages = -1;
-		return 0;
+		return 1;
 
     case XC_SAVE_ID_ENABLE_VERIFY_MODE:
         DPRINTF("Entering page verify mode\n");
@@ -1166,7 +1166,7 @@ void* receive_patch(void* args)
 	pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
     pagebuf_init(pagebuf);
 	while ( (pagecount = pagebuf_get_one(mc_xch, mc_ctx, pagebuf, conn, mc_dom)) > 0 ) {
-		hprintf("Slave Read Page\n");
+		hprintf("Slave Read Page, ip = %s\n", ip);
 		if (pagebuf->nr_pages < 0) {
 			pthread_mutex_lock(&recv_finish_cnt_mutex);
 			recv_finish_cnt++;
