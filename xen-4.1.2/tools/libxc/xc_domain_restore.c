@@ -745,6 +745,7 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
     int count, countpages, oldcount, i;
     void* ptmp;
 
+	hprintf("function pagebuf_get_one\n");
     if ( RDEXACT(fd, &count, sizeof(count)) )
     {
         PERROR("Error when reading batch size");
