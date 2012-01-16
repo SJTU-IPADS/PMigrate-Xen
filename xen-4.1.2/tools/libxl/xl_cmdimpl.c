@@ -3031,6 +3031,7 @@ int main_migrate_receive(int argc, char **argv)
 	}
 
 	recv_slave_cnt = argc - optind;
+	hprintf("recv_slave_cnt = %d\n", recv_slave_cnt);
 
     migrate_receive(debug, daemonize, ips, argc - optind);
     return 0;
