@@ -1877,6 +1877,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 		//write(io_fd, mc_end_string, strlen(mc_end_string));
 		pthread_barrier_wait(&sender_iter_banner.barr);
 	}
+	hprintf("Master After Barrier\n");
 
     {
         struct {
@@ -1907,6 +1908,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         }
     }
 
+	hprintf("Master hvm judge\n");
     if ( hvm )
     {
         struct {
@@ -1977,6 +1979,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         }
     }
 
+	hprintf("Zero terminate\n");
     /* Zero terminate */
     i = 0;
     if ( wrexact(io_fd, &i, sizeof(int)) )
@@ -1985,6 +1988,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         goto out;
     }
 
+	hprintf("Master hvm judge 2\n");
     if ( hvm ) 
     {
         uint32_t rec_size;
@@ -2030,6 +2034,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
     /* PV guests only from now on */
 
+	hprintf("Para VM start\n");
     /* Send through a list of all the PFNs that were not in map at the close */
     {
         unsigned int i,j;

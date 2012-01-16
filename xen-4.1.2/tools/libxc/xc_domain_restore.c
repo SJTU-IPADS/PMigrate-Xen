@@ -1506,6 +1506,7 @@ mc_end:
         goto out;
     }
 
+	hprintf("Flushed updates\n");
     // DPRINTF("Received all pages (%d races)\n", nraces);
 
     if ( !ctx->completed ) {
@@ -1526,6 +1527,7 @@ mc_end:
             fcntl(io_fd, F_SETFL, orig_io_fd_flags | O_NONBLOCK);
     }
 
+	hprintf("Before ACPI IO port\n");
     if (pagebuf.acpi_ioport_location == 1) {
         DBGPRINTF("Use new firmware ioport from the checkpoint\n");
         xc_set_hvm_param(xch, dom, HVM_PARAM_ACPI_IOPORTS_LOCATION, 1);
@@ -1534,19 +1536,23 @@ mc_end:
     } else {
         ERROR("Error, unknow acpi ioport location (%i)", pagebuf.acpi_ioport_location);
     }
+	hprintf("After ACPI IO port\n");
 
     if ( ctx->last_checkpoint )
     {
         // DPRINTF("Last checkpoint, finishing\n");
+		hprintf("Goto Finish\n");
         goto finish;
     }
 
     // DPRINTF("Buffered checkpoint\n");
 
+	hprintf("Before GetBuf Page\n");
     if ( pagebuf_get(xch, ctx, &pagebuf, io_fd, dom) ) {
         PERROR("error when buffering batch, finishing");
         goto finish;
     }
+	hprintf("After GetBuf Page\n");
     memset(&tmptail, 0, sizeof(tmptail));
     tmptail.ishvm = hvm;
     if ( buffer_tail(xch, ctx, &tmptail, io_fd, max_vcpu_id, vcpumap,
@@ -1977,12 +1983,14 @@ mc_end:
     goto out;
 
   finish_hvm:
+	hprintf("Enter finish_hvm\n");
     /* Dump the QEMU state to a state file for QEMU to load */
     if ( dump_qemu(xch, dom, &tailbuf.u.hvm) ) {
         PERROR("Error dumping QEMU state to file");
         goto out;
     }
 
+	hprintf("Zero Pages\n");
     /* These comms pages need to be zeroed at the start of day */
     if ( xc_clear_domain_page(xch, dom, tailbuf.u.hvm.magicpfns[0]) ||
          xc_clear_domain_page(xch, dom, tailbuf.u.hvm.magicpfns[1]) ||
@@ -1992,6 +2000,7 @@ mc_end:
         goto out;
     }
 
+	hprintf("XC_hvm_param\n");
     if ( (frc = xc_set_hvm_param(xch, dom,
                                  HVM_PARAM_IOREQ_PFN, tailbuf.u.hvm.magicpfns[0]))
          || (frc = xc_set_hvm_param(xch, dom,
@@ -2009,6 +2018,7 @@ mc_end:
     }
     *store_mfn = tailbuf.u.hvm.magicpfns[2];
 
+	hprintf("console_pfn\n");
     if ( console_pfn ) {
         if ( xc_clear_domain_page(xch, dom, console_pfn) ) {
             PERROR("error zeroing console page");
@@ -2022,6 +2032,7 @@ mc_end:
         *console_mfn = console_pfn;
     }
 
+	hprintf("XC domain setcontext\n");
     frc = xc_domain_hvm_setcontext(xch, dom, tailbuf.u.hvm.hvmbuf,
                                    tailbuf.u.hvm.reclen);
     if ( frc )
@@ -2034,12 +2045,13 @@ mc_end:
     rc = 0;
 
  out:
+	hprintf("rc = %d\n", rc);
     if ( (rc != 0) && (dom != 0) )
         xc_domain_destroy(xch, dom);
     xc_hypercall_buffer_free(xch, ctxt);
     free(mmu);
     free(ctx->p2m);
-    free(pfn_type);
+    //free(pfn_type);
     tailbuf_free(&tailbuf);
 
     /* discard cache for save file  */
