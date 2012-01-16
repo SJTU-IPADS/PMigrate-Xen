@@ -752,6 +752,9 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
     }
 
     // DPRINTF("reading batch of %d pages\n", count);
+	if (count > 0) {
+		hprintf("Pagebuf count: %d\n", count);
+	}
 
     switch ( count )
     {
