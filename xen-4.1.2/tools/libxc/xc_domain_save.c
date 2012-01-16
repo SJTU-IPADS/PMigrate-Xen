@@ -57,7 +57,7 @@
 // Roger: Send Slave Count (Including master)
 int slave_cnt = 0;
 // Communicate End String
-static char *mc_end_string = "MC_END";
+//static char *mc_end_string = "MC_END";
 
 struct save_ctx {
     unsigned long hvirt_start; /* virtual starting address of the hypervisor */
