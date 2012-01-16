@@ -760,7 +760,7 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
         return 0;
 
 	case XC_PARA_MIGR_END: 
-		buf->nr_pages = -1;
+		buf->nr_pages = 0;
 		return 1;
 
     case XC_SAVE_ID_ENABLE_VERIFY_MODE:
@@ -1167,7 +1167,7 @@ void* receive_patch(void* args)
     pagebuf_init(pagebuf);
 	while ( (pagecount = pagebuf_get_one(mc_xch, mc_ctx, pagebuf, conn, mc_dom)) > 0 ) {
 		hprintf("Slave Read Page, ip = %s, read %d pages\n", ip, pagecount);
-		if (pagebuf->nr_pages < 0) {
+		if (pagebuf->nr_pages == 0) {
 			pthread_mutex_lock(&recv_finish_cnt_mutex);
 			recv_finish_cnt++;
 			pthread_mutex_unlock(&recv_finish_cnt_mutex);
