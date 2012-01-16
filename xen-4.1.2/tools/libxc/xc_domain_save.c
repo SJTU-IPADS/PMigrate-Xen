@@ -1875,6 +1875,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 	{
 		sender_iter_banner.cnt = 2;
 		wrexact(io_fd, mc_end_string, strlen(mc_end_string));
+		outbuf_flush(xch, &ob, io_fd);
 		pthread_barrier_wait(&sender_iter_banner.barr);
 	}
 
