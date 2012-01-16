@@ -965,7 +965,7 @@ void* send_patch(void* args)
 				hprintf("Slave Meet Barrier\n");
 				outbuf_flush(xch, &ob, io_fd);
 
-				wrexact(conn, &flag, sizeof(flag));
+				write(io_fd, &flag, sizeof(flag));
 				while ( (cnt = read(io_fd, buffer, 10)) <= 0) {
 					if (!strncmp(buffer, "OK", 2)) {
 						hprintf("Barrier Sync OK, ip %s\n", ip);
