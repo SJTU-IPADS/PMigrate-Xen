@@ -1518,6 +1518,7 @@ mc_end:
             goto out;
         }
 
+		hprintf("After buffer_tail\n");
         ctx->completed = 1;
 
         /*
@@ -1526,6 +1527,7 @@ mc_end:
          */
         if ( !ctx->last_checkpoint )
             fcntl(io_fd, F_SETFL, orig_io_fd_flags | O_NONBLOCK);
+		hprintf("After Last Checkpoint\n");
     }
 
 	hprintf("Before ACPI IO port\n");
