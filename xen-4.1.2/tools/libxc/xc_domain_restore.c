@@ -1412,8 +1412,9 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 					usleep(SLEEP_LONG_TIME);
 					continue;
 				} else {
-					buf_count = read(0, &buf + sum, sizeof(buf) - sum);
+					buf_count = read(io_fd, &buf + sum, sizeof(buf) - sum);
 					sum += buf_count;
+					hprintf("sum is %d, buf_count = %d\n", sum, buf_count);
 					while ( sum > 0) {
 						hprintf("Read something from stdin\n");
 						sum += buf_count;
