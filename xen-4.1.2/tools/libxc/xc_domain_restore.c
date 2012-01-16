@@ -779,6 +779,11 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
 		buf->nr_physpages = 0;
 		return 1;
 
+	case XC_ITERATION_BARRIER:
+		buf->nr_pages = 0;
+		buf->nr_physpages = 0;
+		return 1;
+
     case XC_SAVE_ID_ENABLE_VERIFY_MODE:
         DPRINTF("Entering page verify mode\n");
         buf->verify = 1;
@@ -1190,6 +1195,15 @@ void* receive_patch(void* args)
 			recv_finish_cnt++;
 			pthread_mutex_unlock(&recv_finish_cnt_mutex);
 			break;
+		} else if (pagebuf->nr_pages == 0 && pagebuf->nr_physpages == 0) { // iteration barrier 
+
+			char* return_val= "OK"; // This should be picked out
+			pthread_barrier_wait(&recv_iter_barr);
+			write(conn, return_val, strlen(return_val));
+			
+			free(pagebuf);
+			pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
+			pagebuf_init(pagebuf);
 		} else if (pagebuf->nr_pages == 1 && pagebuf->nr_physpages == 0) { // last iteration
 			pthread_mutex_lock(&last_iteration_mutex); 
 			if (!mc_last_iter)

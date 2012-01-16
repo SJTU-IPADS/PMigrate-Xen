@@ -91,6 +91,9 @@ int recv_slave_cnt;
 int mc_last_iter;
 pthread_mutex_t last_iteration_mutex;
 
+// Receive Iteration Barrier
+pthread_barrier_t recv_iter_barr;
+
 
 int parse_dest_file(char* dest_file, char*** dests, int* dest_cnt); 
 int rune_add_ips(char** rune, char** dests, int dest_cnt);

@@ -959,8 +959,20 @@ void* send_patch(void* args)
 		//hprintf("Slave into loop\n");
 		while (send_argu_dequeue(&argu) < 0) { // Empty
 			if (sender_iter_banner.cnt ==  1) {
+				int flag = XC_ITERATION_BARRIER;
+				int cnt = 0;
+				char buffer[10];
 				hprintf("Slave Meet Barrier\n");
 				outbuf_flush(xch, &ob, io_fd);
+
+				wrexact(conn, &flag, sizeof(flag));
+				while ( (cnt = read(io_fd, buffer, 10)) <= 0) {
+					if (!strncmp(buffer, "OK", 2)) {
+						hprintf("Barrier Sync OK, ip %s\n", ip);
+					} else {
+						hprintf("Sync failed, ip %s\n", ip);
+					}
+				}
 				pthread_barrier_wait(&sender_iter_banner.barr);
 			} else if (sender_iter_banner.cnt ==  2) {
 				hprintf("Slave Meet End Barrier\n");
@@ -998,9 +1010,6 @@ void* send_patch(void* args)
 
 		// Debug
 		bzero(argu, sizeof(argu));
-
-		//hprintf("region_base is %p\n", region_base);
-		
 
 		/* This code copied from origin master */
 		for ( run = j = 0; j < batch; j++ )
