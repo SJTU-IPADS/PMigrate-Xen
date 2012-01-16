@@ -530,11 +530,13 @@ static int buffer_tail_hvm(xc_interface *xch, struct restore_ctx *ctx,
     uint8_t *tmp;
     unsigned char qemusig[21];
 
+	hprintf("In buffer_tail_hvm\n");
     if ( RDEXACT(fd, buf->magicpfns, sizeof(buf->magicpfns)) ) {
         PERROR("Error reading magic PFNs");
         return -1;
     }
 
+	hprintf("Read reclen\n");
     if ( RDEXACT(fd, &buf->reclen, sizeof(buf->reclen)) ) {
         PERROR("Error reading HVM params size");
         return -1;
@@ -560,16 +562,19 @@ static int buffer_tail_hvm(xc_interface *xch, struct restore_ctx *ctx,
         }
     }
 
+	hprintf("Read hvmbuf\n");
     if ( RDEXACT(fd, buf->hvmbuf, buf->reclen) ) {
         PERROR("Error reading HVM params");
         return -1;
     }
 
+	hprintf("Read qemusig\n");
     if ( RDEXACT(fd, qemusig, sizeof(qemusig)) ) {
         PERROR("Error reading QEMU signature");
         return -1;
     }
 
+	hprintf("Qemusig: %s\n", qemusig);
     /* The legacy live-migration QEMU record has no length information.
      * Short of reimplementing the QEMU parser, we're forced to just read
      * until EOF.
@@ -678,6 +683,7 @@ static int buffer_tail(xc_interface *xch, struct restore_ctx *ctx,
                        uint64_t vcpumap, int ext_vcpucontext,
                        int vcpuextstate, uint32_t vcpuextstate_size)
 {
+	hprintf("In buffer_tail\n");
     if ( buf->ishvm )
         return buffer_tail_hvm(xch, ctx, &buf->u.hvm, fd, max_vcpu_id, vcpumap,
                                ext_vcpucontext, vcpuextstate,
