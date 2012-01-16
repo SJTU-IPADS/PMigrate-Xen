@@ -798,7 +798,8 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
             return -1;
         }
         // DPRINTF("Max VCPU ID: %d, vcpumap: %llx\n", buf->max_vcpu_id, buf->vcpumap);
-        return pagebuf_get_one(xch, ctx, buf, fd, dom);
+		return 0;
+        //return pagebuf_get_one(xch, ctx, buf, fd, dom);
 
     case XC_SAVE_ID_HVM_IDENT_PT:
         /* Skip padding 4 bytes then read the EPT identity PT location. */
@@ -1443,6 +1444,28 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
             } */
 			//char buf[strlen(mc_end_string) + 1];
 			//int buf_count = 0, sum = 0;
+
+			while (recv_pagebuf_dequeue(&pagebuf_p) < 0) {
+				hprintf("Queue is empty\n");
+
+				pthread_mutex_lock(&recv_finish_cnt_mutex);
+				if (recv_finish_cnt < recv_slave_cnt) {
+					hprintf("recv_finish_cnt = %d\n", recv_finish_cnt);
+					pthread_mutex_unlock(&recv_finish_cnt_mutex);
+					usleep(SLEEP_LONG_TIME);
+					continue;
+				} else {
+					pthread_mutex_unlock(&recv_finish_cnt_mutex);
+					pagebuf.nr_physpages = pagebuf.nr_pages = 0;
+					if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
+						ERROR("Error when reading batch\n");
+						goto out;
+					}
+					goto mc_end;
+				}
+			} 
+			pthread_mutex_unlock(&recv_finish_cnt_mutex);
+
 			pthread_mutex_lock(&last_iteration_mutex); 
 			if ( !ever_last_iter && mc_last_iter ) { // Last iteration
 				hprintf("Master Do last Iteration\n");
@@ -1460,36 +1483,14 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 			}
 			pthread_mutex_unlock(&last_iteration_mutex); 
 
-			while (recv_pagebuf_dequeue(&pagebuf_p) < 0) {
-				hprintf("Queue is empty\n");
-
-				pthread_mutex_lock(&recv_finish_cnt_mutex);
-				if (recv_finish_cnt < recv_slave_cnt) {
-					hprintf("recv_finish_cnt = %d\n", recv_finish_cnt);
-					pthread_mutex_unlock(&recv_finish_cnt_mutex);
-					usleep(SLEEP_LONG_TIME);
-					continue;
-				} else {
-					pthread_mutex_unlock(&recv_finish_cnt_mutex);
-					pagebuf.nr_physpages = pagebuf.nr_pages = 0;
-					if ( pagebuf_get_one(&pagebuf, io_fd, xc_handle, doom) < 0 ) {
-						ERROR("Error when reading batch\n");
-						goto out;
-					}
-					goto mc_end;
-				}
-
-				pthread_mutex_unlock(&recv_finish_cnt_mutex);
-
-			} 
-
 			pagebuf = *pagebuf_p;
         }
+
+mc_end:
         j = pagebuf.nr_pages;
 
         DBGPRINTF("batch %d\n",j);
 
-mc_end:
         if ( j == 0 ) {
             /* catch vcpu updates */
             if (pagebuf.new_ctxt_format) {
