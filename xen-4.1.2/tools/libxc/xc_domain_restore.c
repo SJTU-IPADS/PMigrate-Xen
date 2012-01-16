@@ -1414,16 +1414,17 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 				} else {
 					buf_count = read(io_fd, &buf + sum, sizeof(buf) - sum);
 					sum += buf_count;
-					hprintf("sum is %d, buf_count = %d\n", sum, buf_count);
 					while ( sum > 0) {
 						hprintf("Read something from stdin\n");
-						sum += buf_count;
 						if (sum >= strlen(mc_end_string) &&
 								!strncmp(buf, mc_end_string, strlen(mc_end_string))) 
 						{
 							// End of Transfer, wait a while for end
 							usleep(SLEEP_SHORT_TIME);
 						}
+						buf_count = read(io_fd, &buf + sum, sizeof(buf) - sum);
+						sum += buf_count;
+						hprintf("sum is %d, buf_count is %d\n", sum, buf_count);
 					}
 					pthread_mutex_unlock(&recv_finish_cnt_mutex);
 					goto mc_end;
