@@ -192,10 +192,10 @@ int send_argu_dequeue(send_argu_t **argu)
 		pthread_mutex_unlock(&send_argu_head_mutex);
 		return -1;
 	}
-	item = send_argu_head->next;
+	item = send_argu_head->prev;
 	*argu = (send_argu_t*)item->item; 
-	send_argu_head->next = item->next;
-	send_argu_head->next->prev = send_argu_head;
+	send_argu_head->prev= item->prev;
+	send_argu_head->prev->next = send_argu_head;
 	free(item);
 	pthread_mutex_unlock(&send_argu_head_mutex);
 
@@ -228,10 +228,10 @@ int recv_pagebuf_dequeue(pagebuf_t **pagebuf)
 		pthread_mutex_unlock(&recv_pagebuf_head_mutex);
 		return -1;
 	}
-	item = recv_pagebuf_head->next;
+	item = recv_pagebuf_head->prev;
 	*pagebuf = (pagebuf_t *)item->item; 
-	recv_pagebuf_head->next = item->next;
-	recv_pagebuf_head->next->prev = recv_pagebuf_head;
+	recv_pagebuf_head->prev = item->prev;
+	recv_pagebuf_head->prev->next = recv_pagebuf_head;
 	free(item);
 	pthread_mutex_unlock(&recv_pagebuf_head_mutex);
 
