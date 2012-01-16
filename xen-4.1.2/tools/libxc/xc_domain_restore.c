@@ -850,7 +850,8 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
             PERROR("error reading/restoring tsc info");
             return -1;
         }
-        return pagebuf_get_one(xch, ctx, buf, fd, dom);
+		return 0;
+        //return pagebuf_get_one(xch, ctx, buf, fd, dom);
     }
 
     case XC_SAVE_ID_HVM_CONSOLE_PFN :
@@ -1206,6 +1207,7 @@ void* receive_patch(void* args)
 			pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
 			pagebuf_init(pagebuf);
 		} else if (pagebuf->nr_pages == 1 && pagebuf->nr_physpages == 0) { // last iteration
+			hprintf("Slave inform Last Iteration\n");
 			pthread_mutex_lock(&last_iteration_mutex); 
 			if (!mc_last_iter)
 				mc_last_iter = 1;
@@ -1449,6 +1451,10 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 					PERROR("Error when reading batch");
 					goto out;
 				}
+				if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
+					PERROR("Error when reading batch");
+					goto out;
+				}
 				pthread_mutex_unlock(&last_iteration_mutex); 
 				continue;
 			}
@@ -1464,33 +1470,13 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 					usleep(SLEEP_LONG_TIME);
 					continue;
 				} else {
-					//buf_count = read(io_fd, buf + sum, strlen(mc_end_string) - sum);
-					//sum += buf_count;
-					/* while ( sum > 0) {
-						 hprintf("Read something from stdin\n");
-						if ( sum >= strlen(mc_end_string)) //&& 
-								//!strncmp(buf, mc_end_string, strlen(mc_end_string) - 1)) 
-						{ */ 
-							// End of Transfer, wait a while for end
 					pthread_mutex_unlock(&recv_finish_cnt_mutex);
+					pagebuf.nr_physpages = pagebuf.nr_pages = 0;
+					if ( pagebuf_get_one(&pagebuf, io_fd, xc_handle, doom) < 0 ) {
+						ERROR("Error when reading batch\n");
+						goto out;
+					}
 					goto mc_end;
-						/* }
-						buf_count = read(io_fd, buf + sum, strlen(mc_end_string) - sum);
-						sum += buf_count;
-						hprintf("sum is %d, buf_count is %d, buf = %s\n", sum, buf_count, buf);
-						
-						if ( sum >= strlen(mc_end_string) ) {
-							hprintf("A\n");
-						} else {
-							hprintf("B\n");
-						}*/
-
-						/* if( !strncmp(buf, mc_end_string, strlen(mc_end_string) - 1) ) {
-							hprintf("C\n");
-						} else {
-							hprintf("D\n");
-						} 
-					}*/
 				}
 
 				pthread_mutex_unlock(&recv_finish_cnt_mutex);
@@ -1503,6 +1489,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 
         DBGPRINTF("batch %d\n",j);
 
+mc_end:
         if ( j == 0 ) {
             /* catch vcpu updates */
             if (pagebuf.new_ctxt_format) {
@@ -1549,7 +1536,6 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
             m = 0;
         }
     }
-mc_end:
 
     /*
      * Ensure we flush all machphys updates before potential PAE-specific
