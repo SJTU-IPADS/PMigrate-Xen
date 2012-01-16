@@ -1407,6 +1407,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 
 				pthread_mutex_lock(&recv_finish_cnt_mutex);
 				if (recv_finish_cnt < recv_slave_cnt) {
+					hprintf("recv_finish_cnt = %d\n", recv_finish_cnt);
 					pthread_mutex_unlock(&recv_finish_cnt_mutex);
 					usleep(SLEEP_LONG_TIME);
 					continue;
