@@ -1172,14 +1172,19 @@ void* receive_patch(void* args)
 	while ( (pagecount = pagebuf_get_one(mc_xch, mc_ctx, pagebuf, conn, mc_dom)) > 0 ) {
 		hprintf("Slave Read Page, ip = %s, read %d pages\n", ip, pagecount);
 		if (pagebuf->nr_pages == 0) {
+			hprintf("1\n");
 			pthread_mutex_lock(&recv_finish_cnt_mutex);
 			recv_finish_cnt++;
 			pthread_mutex_unlock(&recv_finish_cnt_mutex);
 			break;
 		}
+		hprintf("2\n");
 		recv_pagebuf_enqueue(pagebuf);
+		hprintf("3\n");
 		pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
+		hprintf("4\n");
 		pagebuf_init(pagebuf);
+		hprintf("5\n");
 	}
 	hprintf("Slave Finish, ip = %s\n", ip);
 
