@@ -958,9 +958,11 @@ void* send_patch(void* args)
 		while (send_argu_dequeue(&argu) < 0) { // Empty
 			if (sender_iter_banner.cnt ==  1) {
 				hprintf("Slave Meet Barrier\n");
+				outbuf_flush(xch, ob, io_fd);
 				pthread_barrier_wait(&sender_iter_banner.barr);
 			} else if (sender_iter_banner.cnt ==  2) {
 				hprintf("Slave Meet End Barrier\n");
+				outbuf_flush(xch, ob, io_fd);
 				pthread_barrier_wait(&sender_iter_banner.barr);
 				goto out;
 			}
@@ -979,7 +981,8 @@ void* send_patch(void* args)
 		debug = argu->debug;
 		iter = argu->iter;
 		region_base = argu->region_base;
-		last_iter = argu->last_iter;
+		//last_iter = argu->last_iter;
+		last_iter = 0; 
 		ob = argu->ob;
 		live = argu->live;
 		page = argu->page;
