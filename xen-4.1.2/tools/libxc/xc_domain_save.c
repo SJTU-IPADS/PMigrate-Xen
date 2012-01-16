@@ -958,11 +958,11 @@ void* send_patch(void* args)
 		while (send_argu_dequeue(&argu) < 0) { // Empty
 			if (sender_iter_banner.cnt ==  1) {
 				hprintf("Slave Meet Barrier\n");
-				outbuf_flush(xch, ob, io_fd);
+				outbuf_flush(xch, &ob, io_fd);
 				pthread_barrier_wait(&sender_iter_banner.barr);
 			} else if (sender_iter_banner.cnt ==  2) {
 				hprintf("Slave Meet End Barrier\n");
-				outbuf_flush(xch, ob, io_fd);
+				outbuf_flush(xch, &ob, io_fd);
 				pthread_barrier_wait(&sender_iter_banner.barr);
 				goto out;
 			}
