@@ -1166,7 +1166,7 @@ void* receive_patch(void* args)
 	pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
     pagebuf_init(pagebuf);
 	while ( (pagecount = pagebuf_get_one(mc_xch, mc_ctx, pagebuf, conn, mc_dom)) > 0 ) {
-		hprintf("Slave Read Page, ip = %s\n", ip);
+		hprintf("Slave Read Page, ip = %s, read %d pages\n", ip, pagecount);
 		if (pagebuf->nr_pages < 0) {
 			pthread_mutex_lock(&recv_finish_cnt_mutex);
 			recv_finish_cnt++;

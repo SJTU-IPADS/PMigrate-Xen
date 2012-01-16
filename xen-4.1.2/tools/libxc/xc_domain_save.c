@@ -1042,6 +1042,7 @@ void* send_patch(void* args)
 			continue; /* bail on this batch: no valid pages */
 		}
 
+		hprintf("Slave write %d pages, ip = %s\n", batch, ip);
 		if ( wrexact(io_fd, &batch, sizeof(unsigned int)) )
 		{
 			PERROR("Error when writing to state file (2)");
