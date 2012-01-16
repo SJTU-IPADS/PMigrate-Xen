@@ -1200,6 +1200,7 @@ void* receive_patch(void* args)
 			char* return_val= "OK"; // This should be picked out
 			pthread_barrier_wait(&recv_iter_barr);
 			write(conn, return_val, strlen(return_val));
+			hprintf("Write OK Back\n");
 			
 			free(pagebuf);
 			pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
