@@ -135,6 +135,7 @@
 #define XC_SAVE_ID_LAST_CHECKPOINT    -9 /* Commit to restoring after completion of current iteration. */
 #define XC_SAVE_ID_HVM_ACPI_IOPORTS_LOCATION -10
 #define XC_PARA_MIGR_END -11
+#define XC_LAST_ITER_FIRST -12
 
 /*
 ** We process save/restore/migrate in batches of pages; the below

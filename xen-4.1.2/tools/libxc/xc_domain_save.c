@@ -920,6 +920,8 @@ void* send_patch(void* args)
 	char* ip = (char*) args;
 	int conn;
 
+	int ever_last_iter = 0;
+
 	unsigned int run, batch;
 	int j,hvm,debug, iter, last_iter = 0, io_fd, live, race;
     unsigned long *pfn_batch = NULL;
@@ -986,6 +988,13 @@ void* send_patch(void* args)
 		ob = argu->ob;
 		live = argu->live;
 		page = argu->page;
+		
+		if ( !ever_last_iter && argu->last_iter ) {
+			int flag = XC_LAST_ITER_FIRST;
+			ever_last_iter = 1;
+			wrexact(conn, &flag, sizeof(flag));
+		}
+		
 
 		// Debug
 		bzero(argu, sizeof(argu));
@@ -1850,7 +1859,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                     PERROR("Error when writing to state file (tsc)");
                     goto out;
                 }
-
 
             }
 

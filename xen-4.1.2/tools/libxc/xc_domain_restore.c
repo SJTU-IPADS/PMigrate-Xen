@@ -562,7 +562,7 @@ static int buffer_tail_hvm(xc_interface *xch, struct restore_ctx *ctx,
         }
     }
 
-	hprintf("Read hvmbuf\n");
+	hprintf("Read hvmbuf, buf->reclen = %d\n", buf->reclen);
     if ( RDEXACT(fd, buf->hvmbuf, buf->reclen) ) {
         PERROR("Error reading HVM params");
         return -1;
@@ -771,6 +771,12 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
 
 	case XC_PARA_MIGR_END: 
 		buf->nr_pages = 0;
+		buf->nr_physpages = 1;
+		return 1;
+
+	case XC_LAST_ITER_FIRST: 
+		buf->nr_pages = 1;
+		buf->nr_physpages = 0;
 		return 1;
 
     case XC_SAVE_ID_ENABLE_VERIFY_MODE:
@@ -824,7 +830,8 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
             PERROR("error reading/restoring tmem extra");
             return -1;
         }
-        return pagebuf_get_one(xch, ctx, buf, fd, dom);
+		return 0;
+        //return pagebuf_get_one(xch, ctx, buf, fd, dom);
 
     case XC_SAVE_ID_TSC_INFO:
     {
@@ -1177,20 +1184,28 @@ void* receive_patch(void* args)
     pagebuf_init(pagebuf);
 	while ( (pagecount = pagebuf_get_one(mc_xch, mc_ctx, pagebuf, conn, mc_dom)) > 0 ) {
 		hprintf("Slave Read Page, ip = %s, read %d pages\n", ip, pagecount);
-		if (pagebuf->nr_pages == 0) {
+		if (pagebuf->nr_pages == 0 && pagebuf->nr_physpages == 1) { // finish
 			hprintf("1\n");
 			pthread_mutex_lock(&recv_finish_cnt_mutex);
 			recv_finish_cnt++;
 			pthread_mutex_unlock(&recv_finish_cnt_mutex);
 			break;
+		} else if (pagebuf->nr_pages == 1 && pagebuf->nr_physpages == 0) { // last iteration
+			pthread_mutex_lock(&last_iteration_mutex); 
+			if (!mc_last_iter)
+				mc_last_iter = 1;
+			pthread_mutex_unlock(&last_iteration_mutex); 
+			free(pagebuf);
+			pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
+			pagebuf_init(pagebuf);
 		}
-		hprintf("2\n");
+		//hprintf("2\n");
 		recv_pagebuf_enqueue(pagebuf);
-		hprintf("3\n");
+		//hprintf("3\n");
 		pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
-		hprintf("4\n");
+		//hprintf("4\n");
 		pagebuf_init(pagebuf);
-		hprintf("5\n");
+		//hprintf("5\n");
 	}
 	hprintf("Slave Finish, ip = %s\n", ip);
 
@@ -1209,6 +1224,8 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
     unsigned long mfn, pfn;
     unsigned int prev_pc;
     int nraces = 0;
+
+	int ever_last_iter = 0;
 
     /* The new domain's shared-info frame number. */
     unsigned long shared_info_frame;
@@ -1389,6 +1406,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
     prev_pc = 0;
 
     n = m = 0;
+
  loadpages:
 	
 	hprintf("Before For Loop\n");
@@ -1446,8 +1464,23 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 						} 
 					}*/
 				}
+
 				pthread_mutex_unlock(&recv_finish_cnt_mutex);
+
 			} 
+
+			pthread_mutex_lock(&last_iteration_mutex); 
+			if ( !ever_last_iter && mc_last_iter ) { // Last iteration
+				hprintf("Master Do last Iteration\n");
+				ever_last_iter = 1;
+				if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
+					PERROR("Error when reading batch");
+					goto out;
+				}
+				pthread_mutex_unlock(&last_iteration_mutex); 
+				continue;
+			}
+			pthread_mutex_unlock(&last_iteration_mutex); 
 
 			pagebuf = *pagebuf_p;
         }

@@ -87,6 +87,10 @@ int recv_finish_cnt;
 pthread_mutex_t recv_finish_cnt_mutex;
 int recv_slave_cnt;
 
+// Last Iteration
+int mc_last_iter;
+pthread_mutex_t last_iteration_mutex;
+
 
 int parse_dest_file(char* dest_file, char*** dests, int* dest_cnt); 
 int rune_add_ips(char** rune, char** dests, int dest_cnt);
