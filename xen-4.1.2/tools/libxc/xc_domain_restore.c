@@ -1441,6 +1441,19 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
             } */
 			//char buf[strlen(mc_end_string) + 1];
 			//int buf_count = 0, sum = 0;
+			pthread_mutex_lock(&last_iteration_mutex); 
+			if ( !ever_last_iter && mc_last_iter ) { // Last iteration
+				hprintf("Master Do last Iteration\n");
+				ever_last_iter = 1;
+				if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
+					PERROR("Error when reading batch");
+					goto out;
+				}
+				pthread_mutex_unlock(&last_iteration_mutex); 
+				continue;
+			}
+			pthread_mutex_unlock(&last_iteration_mutex); 
+
 			while (recv_pagebuf_dequeue(&pagebuf_p) < 0) {
 				hprintf("Queue is empty\n");
 
@@ -1483,19 +1496,6 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 				pthread_mutex_unlock(&recv_finish_cnt_mutex);
 
 			} 
-
-			pthread_mutex_lock(&last_iteration_mutex); 
-			if ( !ever_last_iter && mc_last_iter ) { // Last iteration
-				hprintf("Master Do last Iteration\n");
-				ever_last_iter = 1;
-				if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
-					PERROR("Error when reading batch");
-					goto out;
-				}
-				pthread_mutex_unlock(&last_iteration_mutex); 
-				continue;
-			}
-			pthread_mutex_unlock(&last_iteration_mutex); 
 
 			pagebuf = *pagebuf_p;
         }
