@@ -967,13 +967,15 @@ void* send_patch(void* args)
 				outbuf_flush(xch, &ob, io_fd);
 
 				while ( (cnt = read(io_fd, buffer, strlen("OK"))) <= 0 ) {
-					hprintf("Slave Buffer %s\n", buffer);
-					if (!strncmp(buffer, "OK", 2)) {
-						hprintf("Barrier Sync OK, ip %s\n", ip);
-					} else {
-						hprintf("Sync failed, ip %s\n", ip);
-					}
+					usleep(SLEEP_SHORT_TIME);
 				}
+
+				if (!strncmp(buffer, "OK", 2)) {
+					hprintf("Barrier Sync OK, ip %s\n", ip);
+				} else {
+					hprintf("Sync failed, ip %s\n", ip);
+				}
+
 				pthread_barrier_wait(&sender_iter_banner.barr);
 			} else if (sender_iter_banner.cnt ==  2) {
 				hprintf("Slave Meet End Barrier\n");
