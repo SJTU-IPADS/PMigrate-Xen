@@ -1412,17 +1412,17 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 					usleep(SLEEP_LONG_TIME);
 					continue;
 				} else {
-					/* buf_count = read(io_fd, buf + sum, strlen(mc_end_string) - sum);
+					buf_count = read(io_fd, buf + sum, strlen(mc_end_string) - sum);
 					sum += buf_count;
 					while ( sum > 0) {
 						hprintf("Read something from stdin\n");
-						if ( sum >= strlen(mc_end_string) && 
-								!strncmp(buf, mc_end_string, strlen(mc_end_string) - 1)) 
-						{ */
+						if ( sum >= strlen(mc_end_string)) //&& 
+								//!strncmp(buf, mc_end_string, strlen(mc_end_string) - 1)) 
+						{ 
 							// End of Transfer, wait a while for end
-					pthread_mutex_unlock(&recv_finish_cnt_mutex);
-					goto mc_end;
-						/* }
+							pthread_mutex_unlock(&recv_finish_cnt_mutex);
+							goto mc_end;
+						}
 						buf_count = read(io_fd, buf + sum, strlen(mc_end_string) - sum);
 						sum += buf_count;
 						hprintf("sum is %d, buf_count is %d, buf = %s\n", sum, buf_count, buf);
@@ -1432,11 +1432,11 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 							hprintf("B\n");
 						}
 
-						if( !strncmp(buf, mc_end_string, strlen(mc_end_string) - 1) ) {
+						/* if( !strncmp(buf, mc_end_string, strlen(mc_end_string) - 1) ) {
 							hprintf("C\n");
 						} else {
 							hprintf("D\n");
-						}*/
+						} */
 					}
 				}
 				pthread_mutex_unlock(&recv_finish_cnt_mutex);
