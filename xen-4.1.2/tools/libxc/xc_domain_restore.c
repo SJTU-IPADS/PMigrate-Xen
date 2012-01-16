@@ -1437,8 +1437,8 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 							hprintf("C\n");
 						} else {
 							hprintf("D\n");
-						} */
-					}
+						} 
+					}*/
 				}
 				pthread_mutex_unlock(&recv_finish_cnt_mutex);
 			} 
