@@ -832,6 +832,7 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
         return pagebuf_get_one(xch, ctx, buf, fd, dom);
 
     case XC_SAVE_ID_TMEM_EXTRA:
+		hprintf("Real Extra\n");
         if ( xc_tmem_restore_extra(xch, dom, fd) ) {
             PERROR("error reading/restoring tmem extra");
             return -1;
@@ -843,6 +844,7 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
     {
         uint32_t tsc_mode, khz, incarn;
         uint64_t nsec;
+		hprintf("Real TSC info\n");
         if ( RDEXACT(fd, &tsc_mode, sizeof(uint32_t)) ||
              RDEXACT(fd, &nsec, sizeof(uint64_t)) ||
              RDEXACT(fd, &khz, sizeof(uint32_t)) ||
@@ -1168,19 +1170,6 @@ void* receive_patch(void* args)
 		exit(-1);
 	}
 
-	/* Rread Test */
-	/*{
-		char buf[10];
-		while(read(conn,buf,sizeof("SB")) <= 0) {
-			usleep(SLEEP_LONG_TIME);
-		}
-		if (strncmp(buf, "SB", 2) == 0) {
-			hprintf("Slave Pass connect test\n");
-		} else {
-			hprintf("Slave connect Error\n");
-		}
-	}*/
-
 	hprintf("Slave connect success, ip = %s\n", ip);
 	while(mc_xch == NULL || mc_ctx == NULL || mc_dom == 0) {
 		usleep(SLEEP_SHORT_TIME);
@@ -1478,10 +1467,12 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 			if ( !ever_last_iter && mc_last_iter ) { // Last iteration
 				hprintf("Master Do last Iteration\n");
 				ever_last_iter = 1;
+				hprintf("Try to tmem_extra\n");
 				if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
 					PERROR("Error when reading batch");
 					goto out;
 				}
+				hprintf("Try to tsc_info\n");
 				if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
 					PERROR("Error when reading batch");
 					goto out;
