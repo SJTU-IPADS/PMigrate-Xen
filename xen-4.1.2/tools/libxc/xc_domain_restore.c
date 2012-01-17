@@ -534,7 +534,7 @@ static int buffer_tail_hvm(xc_interface *xch, struct restore_ctx *ctx,
         PERROR("Error reading magic PFNs");
         return -1;
     }
-	hprintf("magicpfn is %ld, %ld, %ld\n", buf->magic_pfns[0], buf->magic_pfns[1], buf->magic_pfns[2]);
+	hprintf("magicpfn is %ld, %ld, %ld\n", buf->magicpfns[0], buf->magicpfns[1], buf->magicpfns[2]);
 
 	hprintf("Read reclen\n");
     if ( RDEXACT(fd, &buf->reclen, sizeof(buf->reclen)) ) {
