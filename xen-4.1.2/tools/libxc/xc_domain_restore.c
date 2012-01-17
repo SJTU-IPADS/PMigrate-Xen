@@ -1207,6 +1207,7 @@ void* receive_patch(void* args)
 			free(pagebuf);
 			pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
 			pagebuf_init(pagebuf);
+			continue;
 		} else if (pagebuf->nr_pages == 1 && pagebuf->nr_physpages == 0) { // last iteration
 			hprintf("Slave inform Last Iteration\n");
 			pthread_mutex_lock(&last_iteration_mutex); 
@@ -1216,8 +1217,9 @@ void* receive_patch(void* args)
 			free(pagebuf);
 			pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
 			pagebuf_init(pagebuf);
+			continue;
 		}
-		//hprintf("2\n");
+		hprintf("2\n");
 		recv_pagebuf_enqueue(pagebuf);
 		//hprintf("3\n");
 		pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
