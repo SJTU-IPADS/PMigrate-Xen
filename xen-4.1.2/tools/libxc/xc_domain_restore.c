@@ -1548,6 +1548,7 @@ mc_end:
             discard_file_cache(xch, io_fd, 0 /* no flush */);
             m = 0;
         }
+		pagebuf_free(&pagebuf);
     }
 
     /*
