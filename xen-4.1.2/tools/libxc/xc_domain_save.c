@@ -1164,6 +1164,9 @@ void* send_patch(void* args)
 			}                        
 		}
 
+		free(pfn_batch); 
+		free(pfn_err);
+		free(pfn_type);
 		munmap(region_base, batch*PAGE_SIZE);
 	}
 

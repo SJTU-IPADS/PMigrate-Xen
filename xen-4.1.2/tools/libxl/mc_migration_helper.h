@@ -13,7 +13,7 @@
 #define SLEEP_LONG_TIME 1000000
 
 enum {mc_migrate_debug = 0};
-enum {mc_migrate_hint = 1};
+enum {mc_migrate_hint = 0};
 
 typedef struct {
 	volatile int cnt;

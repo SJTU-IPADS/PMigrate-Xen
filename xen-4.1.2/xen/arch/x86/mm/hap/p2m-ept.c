@@ -836,7 +836,7 @@ static void multi_change_dirty_slave(void *data) {
          */
         if (__cmpxchg(&(sync_info->consume_size.counter), consume_index, 
                       consume_index+1, sizeof(int)) == consume_index) {
-            dprintk("consume index is %d, current index is %d, vcpu: %d\n", 
+            //dprintk("consume index is %d, current index is %d, vcpu: %d\n", 
                     consume_index, current_index, get_processor_id());
 
             entry = &sync_info->entry_list[consume_index];
@@ -872,7 +872,7 @@ static void multi_change_dirty_slave(void *data) {
         current_index = atomic_read(&sync_info->current_size);
     }
 
-    dprintk("slave return %d\n", get_processor_id());
+    //dprintk("slave return %d\n", get_processor_id());
     atomic_dec(&slave_data->slave_cnt);
     cpu_set(get_processor_id(), slave_data->slave_cpumask);
 }
@@ -943,7 +943,7 @@ static void multi_change_dirty_master(struct mc_migr_sync *migration_sync, mfn_t
             struct sync_entry *current_entry = &migration_sync->entry_list[entry_index];
             int len;
 
-            dprintk("dispatch job %d\n", i);
+            //dprintk("dispatch job %d\n", i);
             len = (i + MC_DEFAULT_BATCH_L1_LENGTH) < EPT_PAGETABLE_ENTRIES ? 
                 MC_DEFAULT_BATCH_L1_LENGTH : EPT_PAGETABLE_ENTRIES - i;
             current_entry->ept_page_mfn = ept_page_mfn;
