@@ -1013,6 +1013,7 @@ void* send_patch(void* args)
 
 		// Debug
 		free(argu);
+		argu = NULL;
 
 		/* This code copied from origin master */
 		for ( run = j = 0; j < batch; j++ )
@@ -1167,6 +1168,9 @@ void* send_patch(void* args)
 		free(pfn_batch); 
 		free(pfn_err);
 		free(pfn_type);
+		pfn_batch = NULL; 
+		pfn_err = NULL;
+		pfn_type = NULL;
 		munmap(region_base, batch*PAGE_SIZE);
 	}
 
