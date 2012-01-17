@@ -799,8 +799,8 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
             return -1;
         }
         // DPRINTF("Max VCPU ID: %d, vcpumap: %llx\n", buf->max_vcpu_id, buf->vcpumap);
-		return 0;
-        //return pagebuf_get_one(xch, ctx, buf, fd, dom);
+		//return 0;
+        return pagebuf_get_one(xch, ctx, buf, fd, dom);
 
     case XC_SAVE_ID_HVM_IDENT_PT:
         /* Skip padding 4 bytes then read the EPT identity PT location. */
@@ -839,6 +839,7 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
             PERROR("error reading/restoring tmem extra");
             return -1;
         }
+		//return 0;
         return pagebuf_get_one(xch, ctx, buf, fd, dom);
 
     case XC_SAVE_ID_TSC_INFO:
