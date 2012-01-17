@@ -1456,6 +1456,10 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 					continue;
 				} else {
 					pthread_mutex_unlock(&recv_finish_cnt_mutex);
+
+					if (recv_pagebuf_dequeue(&pagebuf_p) >= 0)
+						break;
+
 					pagebuf.nr_physpages = pagebuf.nr_pages = 0;
 					if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
 						ERROR("Error when reading batch\n");
