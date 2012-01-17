@@ -1190,6 +1190,8 @@ struct timeval last_iter_time;
 struct timeval last_iter_time_end;
 struct timeval down_time;
 struct timeval down_time_end;
+struct timeval total_migration_time;
+struct timeval total_migration_time_end;
 
 static unsigned long
 time_between(struct timeval begin, struct timeval end)
@@ -1268,6 +1270,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
     int completed = 0;
 
+	gettimeofday(&total_migration_time, NULL);
 	hprintf("Enter Domain Save\n");
     if ( hvm && !callbacks->switch_qemu_logdirty )
     {
@@ -2350,6 +2353,9 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     DPRINTF("Save exit rc=%d\n",rc);
 	gettimeofday(&down_time_end, NULL);
 	fprintf(stderr, "Downtime %lu\n", time_between(down_time, down_time_end));
+
+	gettimeofday(&total_migration_time_end, NULL);
+	fprintf(stderr, "Total migration time is %lu\n", time_between(total_migration_time, total_migration_time_end));
 
     return !!rc;
 }

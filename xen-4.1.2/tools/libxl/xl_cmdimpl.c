@@ -3092,10 +3092,7 @@ int main_migrate(int argc, char **argv)
     int opt, daemonize = 1, debug = 0, multi = 0;// Roger add multi
 	int dest_cnt = 0;
 
-	struct timeval total_migration_time;
-	struct timeval total_migration_time_end;
 
-	gettimeofday(&total_migration_time, NULL);
     while ((opt = getopt(argc, argv, "hC:s:edm")) != -1) {
         switch (opt) {
         case 'h':
@@ -3164,8 +3161,6 @@ int main_migrate(int argc, char **argv)
     }
 
     migrate_domain(p, rune, config_filename, dests, dest_cnt);
-	gettimeofday(&total_migration_time_end, NULL);
-	fprintf(stderr, "Total migration time is %lu\n", time_between(total_migration_time, total_migration_time_end));
     return 0;
 }
 
