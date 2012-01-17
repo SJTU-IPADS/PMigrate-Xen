@@ -3075,12 +3075,6 @@ int main_save(int argc, char **argv)
 
 extern int slave_cnt;
 
-static unsigned long 
-time_between(struct timeval begin, struct timeval end)                                                                                              
-{   
-	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);                                                                   
-}   
-
 int main_migrate(int argc, char **argv)
 {
     const char *p = NULL;
