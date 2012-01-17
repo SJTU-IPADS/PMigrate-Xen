@@ -1012,7 +1012,7 @@ void* send_patch(void* args)
 		
 
 		// Debug
-		bzero(argu, sizeof(argu));
+		free(argu);
 
 		/* This code copied from origin master */
 		for ( run = j = 0; j < batch; j++ )

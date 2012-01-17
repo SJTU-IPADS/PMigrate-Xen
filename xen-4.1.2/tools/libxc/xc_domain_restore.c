@@ -1482,8 +1482,6 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 					PERROR("Error when reading batch");
 					goto out;
 				}
-				pthread_mutex_unlock(&last_iteration_mutex); 
-				continue;
 			}
 			pthread_mutex_unlock(&last_iteration_mutex); 
 
