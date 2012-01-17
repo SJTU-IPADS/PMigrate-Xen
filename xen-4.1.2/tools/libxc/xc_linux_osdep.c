@@ -37,10 +37,13 @@
 
 #include "xenctrl.h"
 #include "xenctrlosdep.h"
+#include "../libxl/mc_migration_helper.h"
 
 #define ERROR(_m, _a...)  xc_osdep_log(xch,XTL_ERROR,XC_INTERNAL_ERROR,_m , ## _a )
 #define PERROR(_m, _a...) xc_osdep_log(xch,XTL_ERROR,XC_INTERNAL_ERROR,_m \
                   " (%d = %s)", ## _a , errno, xc_strerror(xch, errno))
+#define hprintf(_f, _a...) \
+    if (mc_migrate_hint == 1) ( fprintf(stderr, "Save:" _f, ## _a), fflush(stderr) )
 
 static xc_osdep_handle linux_privcmd_open(xc_interface *xch)
 {
@@ -305,6 +308,8 @@ static void *linux_privcmd_map_foreign_range(xc_interface *xch, xc_osdep_handle 
 
     num = (size + XC_PAGE_SIZE - 1) >> XC_PAGE_SHIFT;
     arr = calloc(num, sizeof(xen_pfn_t));
+
+	hprintf("***PRIVATE CMD num = %d\n", num);
 
     for ( i = 0; i < num; i++ )
         arr[i] = mfn + i;
