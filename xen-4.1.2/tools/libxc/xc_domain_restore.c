@@ -1459,10 +1459,6 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 						ERROR("Error when reading batch\n");
 						goto out;
 					}
-					pagebuf = *pagebuf_p;
-					if(pagebuf_p)
-						free(pagebuf_p);
-					pagebuf_p = NULL;
 					pagebuf.nr_physpages = pagebuf.nr_pages = 0;
 					goto mc_end;
 				}
