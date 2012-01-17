@@ -826,6 +826,7 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
 
     case XC_SAVE_ID_TMEM:
         DPRINTF("xc_domain_restore start tmem\n");
+		hprintf("Real TMEM\n");
         if ( xc_tmem_restore(xch, dom, fd) ) {
             PERROR("error reading/restoring tmem");
             return -1;
@@ -833,13 +834,12 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
         return pagebuf_get_one(xch, ctx, buf, fd, dom);
 
     case XC_SAVE_ID_TMEM_EXTRA:
-		hprintf("Real Extra\n");
+		hprintf("Real TMEM Extra\n");
         if ( xc_tmem_restore_extra(xch, dom, fd) ) {
             PERROR("error reading/restoring tmem extra");
             return -1;
         }
-		return 0;
-        //return pagebuf_get_one(xch, ctx, buf, fd, dom);
+        return pagebuf_get_one(xch, ctx, buf, fd, dom);
 
     case XC_SAVE_ID_TSC_INFO:
     {
@@ -1470,11 +1470,11 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 			if ( !ever_last_iter && mc_last_iter ) { // Last iteration
 				hprintf("Master Do last Iteration\n");
 				ever_last_iter = 1;
-				hprintf("Try to tmem_extra\n");
+				/*hprintf("Try to tmem_extra\n");
 				if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
 					PERROR("Error when reading batch");
 					goto out;
-				}
+				}*/
 				hprintf("Try to tsc_info\n");
 				if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
 					PERROR("Error when reading batch");
