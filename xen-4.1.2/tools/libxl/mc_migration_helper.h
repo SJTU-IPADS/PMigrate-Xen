@@ -10,7 +10,7 @@
 #define MULTI_TRY 10
 
 #define SLEEP_SHORT_TIME 1000
-#define SLEEP_LONG_TIME 1000000
+#define SLEEP_LONG_TIME 10000
 
 enum {mc_migrate_debug = 0};
 enum {mc_migrate_hint = 0};
