@@ -1182,6 +1182,26 @@ out:
 	return NULL;
 }
 
+time_between(struct timeval begin, struct timeval end)
+{
+	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
+}
+
+struct timeval dirty_page_time;
+struct timeval dirty_page_time_end;
+struct timeval except_last_time;
+struct timeval except_last_time_end;
+struct timeval last_iter_time;
+struct timeval last_iter_time_end;
+struct timeval down_time;
+struct timeval down_time_end;
+
+static unsigned long
+time_between(struct timeval begin, struct timeval end)
+{
+	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
+}
+
 int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iters,
                    uint32_t max_factor, uint32_t flags,
                    struct save_callbacks* callbacks, int hvm)
@@ -1310,6 +1330,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     if ( live )
     {
         /* Live suspend. Enable log-dirty mode. */
+		gettimeofday(&dirty_page_time, NULL);
         if ( xc_shadow_control(xch, dom,
                                XEN_DOMCTL_SHADOW_OP_ENABLE_LOGDIRTY,
                                NULL, 0, NULL, 0, NULL) < 0 )
@@ -1331,6 +1352,8 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 goto out;
             }
         }
+		gettimeofday(&dirty_page_time_end, NULL);
+		fprintf(stderr, "Dirty Page Time %lu\n", time_between(dirty_page_time, dirty_page_time_end));
 
         /* Enable qemu-dm logging dirty pages to xen */
         if ( hvm && callbacks->switch_qemu_logdirty(dom, 1, callbacks->data) )
@@ -1475,6 +1498,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
     /* Now write out each data page, canonicalising page tables as we go... */
 	hprintf("Before Save Loop\n");
+	gettimeofday(&except_last_time, NULL);
     for ( ; ; )
     {
         unsigned int N, batch;
@@ -1859,6 +1883,10 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 DPRINTF("Start last iteration\n");
                 last_iter = 1;
 
+				gettimeofday(&except_last_time_end, NULL);
+				fprintf(stderr, "Other iteration time %lu\n", time_between(except_last_time, except_last_time_end));
+				gettimeofday(&last_iter_time, NULL);
+				gettimeofday(&down_time, NULL);
                 if ( suspend_and_state(callbacks->suspend, callbacks->data,
                                        xch, io_fd, dom, &info) )
                 {
@@ -1897,6 +1925,8 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         }
     } /* end of infinite for loop */
 
+	gettimeofday(&last_iter_time_end, NULL);
+	fprintf(stderr, "Last iteration time %lu\n", time_between(last_iter_time, last_iter_time_end));
     DPRINTF("All memory is saved\n");
 
 	/* Send end of memory to receiver */
@@ -2323,6 +2353,8 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     free(to_fix);
 
     DPRINTF("Save exit rc=%d\n",rc);
+	gettimeofday(&down_time_end, NULL);
+	fprintf(stderr, "Downtime %lu\n", time_between(down_time, down_time_end));
 
     return !!rc;
 }
