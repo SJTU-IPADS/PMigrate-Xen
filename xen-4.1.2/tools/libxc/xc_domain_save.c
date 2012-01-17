@@ -2021,6 +2021,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                          (unsigned long *)&magic_pfns[1]);
         xc_get_hvm_param(xch, dom, HVM_PARAM_STORE_PFN,
                          (unsigned long *)&magic_pfns[2]);
+		hprintf("magic_pfns is %ld, %ld, %ld\n", magic_pfns[0], magic_pfns[1], magic_pfns[2]);
         if ( wrexact(io_fd, magic_pfns, sizeof(magic_pfns)) )
         {
             PERROR("Error when writing to state file (7)");

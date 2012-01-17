@@ -530,11 +530,11 @@ static int buffer_tail_hvm(xc_interface *xch, struct restore_ctx *ctx,
     uint8_t *tmp;
     unsigned char qemusig[21];
 
-	hprintf("In buffer_tail_hvm\n");
     if ( RDEXACT(fd, buf->magicpfns, sizeof(buf->magicpfns)) ) {
         PERROR("Error reading magic PFNs");
         return -1;
     }
+	hprintf("magicpfn is %ld, %ld, %ld\n", buf->magic_pfns[0], buf->magic_pfns[1], buf->magic_pfns[2]);
 
 	hprintf("Read reclen\n");
     if ( RDEXACT(fd, &buf->reclen, sizeof(buf->reclen)) ) {
