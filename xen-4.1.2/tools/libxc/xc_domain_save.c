@@ -2316,10 +2316,10 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     xc_hypercall_buffer_free_pages(xch, to_send, NRPAGES(BITMAP_SIZE));
     xc_hypercall_buffer_free_pages(xch, to_skip, NRPAGES(BITMAP_SIZE));
 
-    free(pfn_type);
+    //free(pfn_type);
 	/* Freed by slave */
     //free(pfn_batch);
-    free(pfn_err);
+    //free(pfn_err);
     free(to_fix);
 
     DPRINTF("Save exit rc=%d\n",rc);
