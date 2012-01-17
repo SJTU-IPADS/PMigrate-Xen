@@ -790,6 +790,7 @@ static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
         return pagebuf_get_one(xch, ctx, buf, fd, dom);
 
     case XC_SAVE_ID_VCPU_INFO:
+		hprintf("Real VCPU_INFO\n");
         buf->new_ctxt_format = 1;
         if ( RDEXACT(fd, &buf->max_vcpu_id, sizeof(buf->max_vcpu_id)) ||
              buf->max_vcpu_id >= 64 || RDEXACT(fd, &buf->vcpumap,
@@ -1451,11 +1452,13 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 					if (recv_pagebuf_dequeue(&pagebuf_p) >= 0)
 						break;
 
-					pagebuf.nr_physpages = pagebuf.nr_pages = 0;
+					hprintf("Try VCPU INFO");
 					if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
 						ERROR("Error when reading batch\n");
 						goto out;
 					}
+					pagebuf = *pagebuf_p;
+					pagebuf.nr_physpages = pagebuf.nr_pages = 0;
 					goto mc_end;
 				}
 			} 
