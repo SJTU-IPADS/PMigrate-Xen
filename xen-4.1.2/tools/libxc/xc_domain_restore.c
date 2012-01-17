@@ -1487,6 +1487,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 			pthread_mutex_unlock(&last_iteration_mutex); 
 
 			pagebuf = *pagebuf_p;
+			free(pagebuf_p);
         }
 
 mc_end:
