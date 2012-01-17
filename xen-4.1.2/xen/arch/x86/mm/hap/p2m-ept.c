@@ -837,7 +837,7 @@ static void multi_change_dirty_slave(void *data) {
         if (__cmpxchg(&(sync_info->consume_size.counter), consume_index, 
                       consume_index+1, sizeof(int)) == consume_index) {
             //dprintk("consume index is %d, current index is %d, vcpu: %d\n", 
-                    consume_index, current_index, get_processor_id());
+                    //consume_index, current_index, get_processor_id());
 
             entry = &sync_info->entry_list[consume_index];
             epte = map_domain_page(mfn_x(entry->ept_page_mfn));
