@@ -1095,6 +1095,7 @@ void* send_patch(void* args)
 			pfn      = pfn_type[j] & ~XEN_DOMCTL_PFINFO_LTAB_MASK;
 			pagetype = pfn_type[j] &  XEN_DOMCTL_PFINFO_LTAB_MASK;
 
+			hprintf("pfn = %ld\n", pfn);
 			if ( pagetype != 0 )
 			{
 				/* If the page is not a normal data page, write out any
