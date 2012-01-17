@@ -1182,11 +1182,6 @@ out:
 	return NULL;
 }
 
-time_between(struct timeval begin, struct timeval end)
-{
-	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
-}
-
 struct timeval dirty_page_time;
 struct timeval dirty_page_time_end;
 struct timeval except_last_time;
