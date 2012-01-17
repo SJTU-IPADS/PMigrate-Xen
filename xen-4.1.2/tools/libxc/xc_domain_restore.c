@@ -990,6 +990,7 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
         unsigned long pfn, pagetype;
         pfn      = pagebuf->pfn_types[i + curbatch] & ~XEN_DOMCTL_PFINFO_LTAB_MASK;
         pagetype = pagebuf->pfn_types[i + curbatch] &  XEN_DOMCTL_PFINFO_LTAB_MASK;
+		hprintf("pfn = %ld\n", pfn);
 
         if ( (pagetype != XEN_DOMCTL_PFINFO_XTAB) && 
              (ctx->p2m[pfn] == INVALID_P2M_ENTRY) )
