@@ -1466,6 +1466,8 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 			} 
 			pthread_mutex_unlock(&recv_finish_cnt_mutex);
 
+			hprintf("Master Dequeue\n");
+
 			pthread_mutex_lock(&last_iteration_mutex); 
 			if ( !ever_last_iter && mc_last_iter ) { // Last iteration
 				hprintf("Master Do last Iteration\n");
