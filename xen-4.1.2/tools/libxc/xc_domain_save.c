@@ -418,6 +418,7 @@ static int ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n)
 
 #endif
 
+
 /* like write_buffer for ratewrite, which returns number of bytes written */
 static inline int ratewrite_buffer(xc_interface *xch,
                                    int dobuf, struct outbuf* ob, int fd,
@@ -429,6 +430,7 @@ static inline int ratewrite_buffer(xc_interface *xch,
         return ratewrite(xch, fd, live, buf, len);
 }
 
+static int mc_ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n, int id);
 static inline int mc_ratewrite_buffer(xc_interface *xch,
                                    int dobuf, struct outbuf* ob, int fd,
                                    int live, void* buf, size_t len, int id)
