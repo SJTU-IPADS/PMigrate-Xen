@@ -46,6 +46,11 @@ typedef struct {
 	char *page;
 } send_argu_t;
 
+typedef struct {
+	char* ip;
+	int id;
+} send_slave_argu_t;
+
 struct list_item {
 	void* item;
 	struct list_item* next;

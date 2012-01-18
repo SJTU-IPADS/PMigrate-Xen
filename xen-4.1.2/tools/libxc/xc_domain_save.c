@@ -277,6 +277,8 @@ static inline int write_buffer(xc_interface *xch,
 #define MAX_MBIT_RATE    500      /* maximum transmit rate for migrate */
 #define START_MBIT_RATE  100      /* initial transmit rate for migrate */
 
+#define MAX_SLAVE		 10
+
 /* Scaling factor to convert between a rate (in Mb/s) and time (in usecs) */
 #define RATE_TO_BTU      781250
 
@@ -284,7 +286,7 @@ static inline int write_buffer(xc_interface *xch,
 #define BURST_BUDGET (100*1024)
 
 /* We keep track of the current and previous transmission rate */
-static int mbit_rate, ombit_rate = 0;
+static int mbit_rate, ombit_rate[MAX_SLAVE];
 
 /* Have we reached the maximum transmission rate? */
 #define RATE_IS_MAX() (mbit_rate == MAX_MBIT_RATE)
@@ -292,15 +294,72 @@ static int mbit_rate, ombit_rate = 0;
 static inline void initialize_mbit_rate()
 {
     mbit_rate = START_MBIT_RATE;
+	bzero(ombit_rate, sizeof(ombit_rate));
 }
+
+static int mc_ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n, id)
+{
+    static int budget[MAX_SLAVE];
+    static int burst_time_us[MAX_SLAVE] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+    static struct timeval last_put[MAX_SLAVE];
+    struct timeval now;
+    struct timespec delay;
+    long long delta;
+
+    if ( START_MBIT_RATE == 0 )
+        return noncached_write(io_fd, live, buf, n);
+
+    budget[id] -= n;
+    if ( budget[id] < 0 )
+    {
+        if ( mbit_rate != ombit_rate[id] ) {
+            burst_time_us[id] = RATE_TO_BTU / mbit_rate;
+            ombit_rate[id] = mbit_rate;
+            DPRINTF("rate limit: %d mbit/s burst budget %d slot time %d\n",
+                    mbit_rate, BURST_BUDGET, burst_time_us[id]);
+        }
+        if ( last_put[id].tv_sec == 0 )
+        {
+            budget[id] += BURST_BUDGET;
+            gettimeofday(&last_put[id], NULL);
+        }
+        else
+        {
+            while ( budget[id] < 0 )
+            {
+                gettimeofday(&now, NULL);
+                delta = tv_delta(&now, &last_put[id]);
+                while ( delta > burst_time_us[id] )
+                {
+                    budget[id] += BURST_BUDGET;
+                    last_put[id].tv_usec += burst_time_us[id];
+                    if ( last_put[id].tv_usec > 1000000 )
+                    {
+                        last_put[id].tv_usec -= 1000000;
+                        last_put[id].tv_sec++;
+                    }
+                    delta -= burst_time_us[id];
+                }
+                if ( budget[id] > 0 )
+                    break;
+                delay.tv_sec = 0;
+                delay.tv_nsec = 1000 * (burst_time_us[id] - delta);
+                while ( delay.tv_nsec > 0 )
+                    if ( nanosleep(&delay, &delay) == 0 )
+                        break;
+            }
+        }
+    }
+    return noncached_write(io_fd, live, buf, n);
+}
+
 
 static int ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n)
 {
     static int budget = 0;
     static int burst_time_us = -1;
     static struct timeval last_put = { 0 };
-    struct timeval now;
-    struct timespec delay;
+    struct timeval now; struct timespec delay;
     long long delta;
 
     if ( START_MBIT_RATE == 0 )
@@ -368,6 +427,16 @@ static inline int ratewrite_buffer(xc_interface *xch,
         return outbuf_hardwrite(xch, ob, fd, buf, len) ? -1 : len;
     else
         return ratewrite(xch, fd, live, buf, len);
+}
+
+static inline int mc_ratewrite_buffer(xc_interface *xch,
+                                   int dobuf, struct outbuf* ob, int fd,
+                                   int live, void* buf, size_t len, int id)
+{
+    if ( dobuf )
+        return outbuf_hardwrite(xch, ob, fd, buf, len) ? -1 : len;
+    else
+        return mc_ratewrite(xch, fd, live, buf, len, id);
 }
 
 static int print_stats(xc_interface *xch, uint32_t domid, int pages_sent,
@@ -917,7 +986,8 @@ static int save_tsc_info(xc_interface *xch, uint32_t dom, int io_fd)
  */
 void* send_patch(void* args)
 {
-	char* ip = (char*) args;
+	char* ip = ((send_slave_argu_t*) args)->ip;
+	int id = ((send_slave_argu_t*) args)->id;
 	int conn;
 
 	int ever_last_iter = 0;
@@ -935,6 +1005,7 @@ void* send_patch(void* args)
     struct outbuf ob;
 	char *page;
 
+	free(args);
 	hprintf("Slave start to connect\n");
 	if ((conn = mc_net_client(ip)) < 0) {
 		exit(-1);
@@ -952,7 +1023,7 @@ void* send_patch(void* args)
 #ifdef ratewrite
 #undef ratewrite
 #endif
-#define ratewrite(fd, live, buf, len) ratewrite_buffer(xch, last_iter, &ob, (fd), (live), (buf), (len))
+#define ratewrite(fd, live, buf, len) mc_ratewrite_buffer(xch, last_iter, &ob, (fd), (live), (buf), (len), id)
 	
 	while(1) {
 

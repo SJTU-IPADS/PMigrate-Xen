@@ -2663,7 +2663,10 @@ static void migrate_domain(const char *domain_spec, char *rune,
 		pids = (pthread_t*) malloc(sizeof(pthread_t) * dest_cnt);
 		init_banner(&sender_iter_banner, dest_cnt + 1);
 		for (i = 0; i < dest_cnt; i++) {
-			pthread_create(pids + i, NULL, &send_patch, dests[i]);
+			send_slave_argu_t *argu = malloc(sizeof(send_slave_argu_t));
+			argu->ip = dests[i];
+			argu->id = i;
+			pthread_create(pids + i, NULL, &send_patch, argu);
 		}
 	}
 	
