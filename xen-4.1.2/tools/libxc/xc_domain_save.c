@@ -415,9 +415,9 @@ static int ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n)
 #define RATE_IS_MAX() (0)
 #define ratewrite(xch, _io_fd, _live, _buf, _n) noncached_write((xch), (_io_fd), (_live), (_buf), (_n))
 #define initialize_mbit_rate()
+#define mc_ratewrite(xch, _io_fd, _live, _buf, _n, _id) noncached_write((xch), (_io_fd), (_live), (_buf), (_n))
 
 #endif
-
 
 /* like write_buffer for ratewrite, which returns number of bytes written */
 static inline int ratewrite_buffer(xc_interface *xch,
@@ -430,7 +430,6 @@ static inline int ratewrite_buffer(xc_interface *xch,
         return ratewrite(xch, fd, live, buf, len);
 }
 
-static int mc_ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n, int id);
 static inline int mc_ratewrite_buffer(xc_interface *xch,
                                    int dobuf, struct outbuf* ob, int fd,
                                    int live, void* buf, size_t len, int id)
