@@ -297,7 +297,7 @@ static inline void initialize_mbit_rate()
 	bzero(ombit_rate, sizeof(ombit_rate));
 }
 
-static int mc_ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n, id)
+static int mc_ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n, int id)
 {
     static int budget[MAX_SLAVE];
     static int burst_time_us[MAX_SLAVE] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
