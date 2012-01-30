@@ -9,7 +9,7 @@
 #define PAUSE while(1)
 #define MULTI_TRY 10
 
-#define SLEEP_SHORT_TIME 1000
+#define SLEEP_SHORT_TIME 10000
 #define SLEEP_LONG_TIME 10000
 
 enum {mc_migrate_debug = 0};
