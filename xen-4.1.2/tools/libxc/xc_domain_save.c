@@ -1264,6 +1264,9 @@ struct timeval down_time;
 struct timeval down_time_end;
 struct timeval total_migration_time;
 struct timeval total_migration_time_end;
+struct timeval map_page_time;
+struct timeval map_page_time_end;
+unsigned long long m_page = 0;
 
 static unsigned long
 time_between(struct timeval begin, struct timeval end)
@@ -1711,8 +1714,11 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             if ( batch == 0 )
                 goto skip; /* vanishingly unlikely... */
 
+			gettimeofday(&map_page_time, NULL);
             region_base = xc_map_foreign_bulk(
                 xch, dom, PROT_READ, pfn_type, pfn_err, batch);
+			gettimeofday(&map_page_time_end, NULL);
+			m_page += time_between(map_page_time, map_page_time_end);
             if ( region_base == NULL )
             {
                 PERROR("map batch failed");
@@ -2428,6 +2434,8 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
 	gettimeofday(&total_migration_time_end, NULL);
 	fprintf(stderr, "Total migration time is %lu\n", time_between(total_migration_time, total_migration_time_end));
+
+	fprintf(stderr, "Map foreign time %llu\n", m_page);
 
     return !!rc;
 }
