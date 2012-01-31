@@ -1268,6 +1268,9 @@ struct timeval map_page_time;
 struct timeval map_page_time_end;
 unsigned long long m_page = 0;
 
+extern unsigned long long ioctl_time;
+extern unsigned int ioctl_ts;
+
 static unsigned long
 time_between(struct timeval begin, struct timeval end)
 {
@@ -2436,6 +2439,9 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 	fprintf(stderr, "Total migration time is %lu\n", time_between(total_migration_time, total_migration_time_end));
 
 	fprintf(stderr, "Map foreign time %llu\n", m_page);
+
+	fprintf(stderr, "IOctl time %llu\n", ioctl_time);
+	fprintf(stderr, "IOctl cnt %d\n", ioctl_ts);
 
     return !!rc;
 }
