@@ -196,6 +196,9 @@ static void *linux_privcmd_map_foreign_bulk(xc_interface *xch, xc_osdep_handle h
 
     rc = ioctl(fd, IOCTL_PRIVCMD_MMAPBATCH_V2, &ioctlx);
 
+	if (rc < 0)
+		fprintf(stderr, "rc == %d\n", rc);
+
     if ( rc < 0 && errno == ENOENT )
     {
         for ( i = rc = 0; rc == 0 && i < num; i++ )
