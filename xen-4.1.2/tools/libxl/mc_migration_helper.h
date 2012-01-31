@@ -44,6 +44,7 @@ typedef struct {
     struct outbuf ob;
 	int live;
 	char *page;
+	uint32_t dom;
 } send_argu_t;
 
 typedef struct {
