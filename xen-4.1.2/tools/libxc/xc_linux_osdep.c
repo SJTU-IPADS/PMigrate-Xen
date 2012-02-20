@@ -30,6 +30,7 @@
 
 #include <sys/mman.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 
 #include <xen/memory.h>
 #include <xen/sys/evtchn.h>
