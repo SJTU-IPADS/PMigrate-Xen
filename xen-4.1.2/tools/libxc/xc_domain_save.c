@@ -1005,7 +1005,6 @@ void* send_patch(void* args)
     unsigned char *region_base;
     struct outbuf ob;
 	char *page;
-	uint32_t dom;
 
 	free(args);
 	hprintf("Slave start to connect\n");
@@ -1076,23 +1075,6 @@ void* send_patch(void* args)
 		ob = argu->ob;
 		live = argu->live;
 		page = argu->page;
-		dom = argu->dom;
-
-		region_base = xc_map_foreign_bulk(
-				xch, dom, PROT_READ, pfn_type, pfn_err, batch);
-		if ( region_base == NULL )
-		{
-			PERROR("map batch failed");
-			goto out;
-		}
-		//hprintf("region_base is %p\n", region_base);
-
-		/* Get page types */
-		if ( xc_get_pfn_type_batch(xch, dom, batch, pfn_type) )
-		{
-			PERROR("get_pfn_type_batch failed");
-			goto out;
-		}
 		
 		if ( !ever_last_iter && argu->last_iter ) {
 			int flag = XC_LAST_ITER_FIRST;
@@ -1735,7 +1717,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             if ( batch == 0 )
                 goto skip; /* vanishingly unlikely... */
 
-#if 0
 			gettimeofday(&map_page_time, NULL);
             region_base = xc_map_foreign_bulk(
                 xch, dom, PROT_READ, pfn_type, pfn_err, batch);
@@ -1754,7 +1735,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 PERROR("get_pfn_type_batch failed");
                 goto out;
             }
-#endif
 
 			//hprintf("Befere Page Equeue\n");
 			/* batch, pfn_batch */
@@ -1775,7 +1755,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 				argu->ob = ob;
 				argu->live = live;
 				argu->page = page;
-				argu->dom = dom;
 				send_argu_enqueue(argu);
 			}
 			//hprintf("After Page Equeue\n");
