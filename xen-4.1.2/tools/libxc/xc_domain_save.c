@@ -985,6 +985,16 @@ static int save_tsc_info(xc_interface *xch, uint32_t dom, int io_fd)
  * Roger 
  * Sender Slave 
  */
+struct timeval map_page_time[10];
+struct timeval map_page_time_end[10];
+unsigned long long m_page[10];
+
+static unsigned long
+time_between(struct timeval begin, struct timeval end)
+{
+	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
+}
+
 void* send_patch(void* args)
 {
 	char* ip = ((send_slave_argu_t*) args)->ip;
@@ -1078,8 +1088,12 @@ void* send_patch(void* args)
 		page = argu->page;
 		dom = argu->dom;
 
+		gettimeofday(&map_page_time[id], NULL);
 		region_base = xc_map_foreign_bulk(
 				xch, dom, PROT_READ, pfn_type, pfn_err, batch);
+		gettimeofday(&map_page_time_end[id], NULL);
+		m_page[id] += time_between(map_page_time[id], map_page_time_end[id]);
+
 		if ( region_base == NULL )
 		{
 			PERROR("map batch failed");
@@ -1282,18 +1296,11 @@ struct timeval down_time;
 struct timeval down_time_end;
 struct timeval total_migration_time;
 struct timeval total_migration_time_end;
-struct timeval map_page_time;
-struct timeval map_page_time_end;
-unsigned long long m_page = 0;
+unsigned long long total_map_time = 0;
 
 extern unsigned long long ioctl_time;
 extern unsigned int ioctl_ts;
 
-static unsigned long
-time_between(struct timeval begin, struct timeval end)
-{
-	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
-}
 
 int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iters,
                    uint32_t max_factor, uint32_t flags,
@@ -1368,6 +1375,8 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
 	gettimeofday(&total_migration_time, NULL);
 	hprintf("Enter Domain Save\n");
+	bzero(m_page, sizeof(unsigned long long) * 10);
+
     if ( hvm && !callbacks->switch_qemu_logdirty )
     {
         ERROR("No switch_qemu_logdirty callback provided.");
@@ -2459,7 +2468,14 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 	gettimeofday(&total_migration_time_end, NULL);
 	fprintf(stderr, "Total migration time is %lu\n", time_between(total_migration_time, total_migration_time_end));
 
-	fprintf(stderr, "Map foreign time %llu\n", m_page);
+	fprintf(stderr, "Map separate time: ");
+	for (i = 0; ; i++) {
+		if (m_page[i] != 0) {
+			fprintf(stderr, "%llu\t", m_page[i]);
+			total_map_time += m_page[i];
+		}
+	}
+	fprintf(stderr, "\n Total Map Time: %llu\n", total_map_time);
 
 	fprintf(stderr, "IOctl time %llu\n", ioctl_time);
 	fprintf(stderr, "IOctl cnt %d\n", ioctl_ts);
