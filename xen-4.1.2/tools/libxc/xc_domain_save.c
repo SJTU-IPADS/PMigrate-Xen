@@ -2474,6 +2474,9 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 			fprintf(stderr, "%llu\t", m_page[i]);
 			total_map_time += m_page[i];
 		}
+		else {
+			break;
+		}
 	}
 	fprintf(stderr, "\n Total Map Time: %llu\n", total_map_time);
 
