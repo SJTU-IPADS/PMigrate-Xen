@@ -987,6 +987,8 @@ static int save_tsc_info(xc_interface *xch, uint32_t dom, int io_fd)
  */
 struct timeval map_page_time[10];
 struct timeval map_page_time_end[10];
+unsigned int map_page_t_cnt[10];
+unsigned int total_map_cnt = 0;
 unsigned long long m_page[10];
 
 static unsigned long
@@ -1088,6 +1090,7 @@ void* send_patch(void* args)
 		page = argu->page;
 		dom = argu->dom;
 
+		map_page_t_cnt[id]++;
 		gettimeofday(&map_page_time[id], NULL);
 		region_base = xc_map_foreign_bulk(
 				xch, dom, PROT_READ, pfn_type, pfn_err, batch);
@@ -1297,6 +1300,7 @@ struct timeval down_time_end;
 struct timeval total_migration_time;
 struct timeval total_migration_time_end;
 unsigned long long total_map_time = 0;
+unsigned long send_page_cnt = 0;
 
 extern unsigned long long ioctl_time;
 extern unsigned int ioctl_ts;
@@ -1376,6 +1380,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 	gettimeofday(&total_migration_time, NULL);
 	hprintf("Enter Domain Save\n");
 	bzero(m_page, sizeof(unsigned long long) * 10);
+	bzero(map_page_t_cnt, sizeof(unsigned int) * 10);
 
     if ( hvm && !callbacks->switch_qemu_logdirty )
     {
@@ -1764,6 +1769,8 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 goto out;
             }
 #endif
+
+			send_page_cnt += batch;
 
 			//hprintf("Befere Page Equeue\n");
 			/* batch, pfn_batch */
@@ -2478,7 +2485,20 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 			break;
 		}
 	}
-	fprintf(stderr, "\n Total Map Time: %llu\n", total_map_time);
+	fprintf(stderr, "\nTotal Map Time: %llu\n", total_map_time);
+
+	fprintf(stderr, "Map separate count: ");
+	for (i = 0; ; i++) {
+		if (map_page_t_cnt[i] != 0) {
+			fprintf(stderr, "%u\t", map_page_t_cnt[i]);
+			total_map_cnt += map_page_t_cnt[i];
+		}
+		else {
+			break;
+		}
+	}
+	fprintf(stderr, "\nTotal Map Count: %u\n", total_map_cnt);
+	fprintf(stderr, "\nTotal Send Page: %lu\n", send_page_cnt);
 
 	fprintf(stderr, "IOctl time %llu\n", ioctl_time);
 	fprintf(stderr, "IOctl cnt %d\n", ioctl_ts);
