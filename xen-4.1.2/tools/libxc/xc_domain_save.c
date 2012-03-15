@@ -1027,11 +1027,6 @@ void* send_patch(void* args)
 
 	io_fd = conn;
 	/* Write Test */
-	/*if( write(io_fd, "SB", sizeof("SB")) == sizeof("SB")) {
-		// Do nothing
-	} else {
-		hprintf("Connect Error\n");
-	}*/
 	hprintf("Slave connect success\n");
 #define wrexact(fd, buf, len) write_buffer(xch, last_iter, &ob, (fd), (buf), (len))
 #ifdef ratewrite
@@ -1048,10 +1043,10 @@ void* send_patch(void* args)
 				int cnt = 0;
 				char buffer[10];
 				hprintf("Slave Meet Barrier\n");
-				wrexact(io_fd, &flag, sizeof(flag));
+				wrexact(io_fd, &flag, sizeof(flag)); // * Write Mark
 				outbuf_flush(xch, &ob, io_fd);
 
-				while ( (cnt = read(io_fd, buffer, strlen("OK"))) <= 0 ) {
+				while ( (cnt = read(io_fd, buffer, strlen("OK"))) <= 0 ) { // * Read Mark
 					usleep(SLEEP_SHORT_TIME);
 				}
 
@@ -1114,7 +1109,7 @@ void* send_patch(void* args)
 		if ( !ever_last_iter && argu->last_iter ) {
 			int flag = XC_LAST_ITER_FIRST;
 			ever_last_iter = 1;
-			wrexact(conn, &flag, sizeof(flag));
+			wrexact(conn, &flag, sizeof(flag));  // * Write Mark
 		}
 		
 
@@ -1175,7 +1170,7 @@ void* send_patch(void* args)
 		}
 
 		hprintf("Slave write %d pages, ip = %s\n", batch, ip);
-		if ( wrexact(io_fd, &batch, sizeof(unsigned int)) )
+		if ( wrexact(io_fd, &batch, sizeof(unsigned int)) ) // * Write Mark
 		{
 			PERROR("Error when writing to state file (2)");
 			goto out;
@@ -1184,7 +1179,7 @@ void* send_patch(void* args)
 		if ( sizeof(unsigned long) < sizeof(*pfn_type) )
 			for ( j = 0; j < batch; j++ )
 				((unsigned long *)pfn_type)[j] = pfn_type[j];
-		if ( wrexact(io_fd, pfn_type, sizeof(unsigned long)*batch) )
+		if ( wrexact(io_fd, pfn_type, sizeof(unsigned long)*batch) ) // * Write Mark
 		{
 			PERROR("Error when writing to state file (3)");
 			goto out;
@@ -1212,7 +1207,7 @@ void* send_patch(void* args)
 				{
 					if ( ratewrite(io_fd, live, 
 								(char*)region_base+(PAGE_SIZE*(j-run)), 
-								PAGE_SIZE*run) != PAGE_SIZE*run )
+								PAGE_SIZE*run) != PAGE_SIZE*run ) // * Write Mark
 					{
 						PERROR("Error when writing to state file (4a)"
 								" (errno %d)", errno);
@@ -1243,7 +1238,7 @@ void* send_patch(void* args)
 					goto out;
 				}
 
-				if ( ratewrite(io_fd, live, page, PAGE_SIZE) != PAGE_SIZE )
+				if ( ratewrite(io_fd, live, page, PAGE_SIZE) != PAGE_SIZE ) // * Write Mark
 				{
 					PERROR("Error when writing to state file (4b)"
 							" (errno %d)", errno);
@@ -1263,7 +1258,7 @@ void* send_patch(void* args)
 			/* write out the last accumulated run of pages */
 			if ( ratewrite(io_fd, live, 
 						(char*)region_base+(PAGE_SIZE*(j-run)), 
-						PAGE_SIZE*run) != PAGE_SIZE*run )
+						PAGE_SIZE*run) != PAGE_SIZE*run ) // * Write Mark
 			{
 				PERROR("Error when writing to state file (4c)"
 						" (errno %d)", errno);
