@@ -35,6 +35,7 @@
 #include <xen/hvm/params.h>
 #include "xc_e820.h"
 #include "../libxl/mc_migration_helper.h"
+#include "./mc_ssl/cipher.h"
 
 /*
 ** Default values for important tuning parameters. Can override by passing
@@ -985,6 +986,84 @@ static int save_tsc_info(xc_interface *xch, uint32_t dom, int io_fd)
  * Roger 
  * Sender Slave 
  */
+
+struct ssl_wrap {
+	CipherContext *cc;
+	unsigned long ssl_buf_len;
+	char *ssl_buf;
+};
+
+static CipherContext *init_ssl_byname(char* cipher_name, char* password, int en) {
+	unsigned char key[EVP_MAX_KEY_LENGTH];
+	unsigned char iv[EVP_MAX_IV_LENGTH];
+	Cipher *cipher = cipher_by_name(cipher_name);
+	CipherContext *cc = (CipherContext*) malloc(sizeof(CipherContext));
+
+	if (cipher == NULL) {
+		return NULL;
+	}
+
+	EVP_BytesToKey(cipher->evptype(), EVP_md5(), NULL, (unsigned char*)password, strlen(password), 1, key, iv);
+	if (en > 0) {
+		cipher_init(cc, cipher, key, cipher->key_len, iv, cipher->block_size, CIPHER_ENCRYPT);
+	} else {
+		cipher_init(cc, cipher, key, cipher->key_len, iv, cipher->block_size, CIPHER_DECRYPT);
+	}
+
+	return cc;
+}
+
+static int ssl_crypt(struct ssl_wrap *ssl, char *data, size_t size) {
+	Cipher *cipher = ssl->cc->cipher;
+	char *buf = NULL;
+	int is_tem = 0;
+	if (size < cipher->block_size) {
+		buf = (char*)calloc(cipher->block_size, 1);
+		memcpy(buf, data, size);
+		size = cipher->block_size;
+		is_tem = 1;
+	} else if ( (size % cipher->block_size) != 0 ){ // Not mod block size
+		return -1;
+	} else {
+		buf = data;
+		if (ssl->ssl_buf_len < size) { // Resize ssl_buf
+			ssl->ssl_buf_len = size;
+			ssl->ssl_buf = (char*) realloc(ssl->ssl_buf, size);
+		}
+	}
+
+	cipher_crypt(ssl->cc, (unsigned char*)ssl->ssl_buf, (unsigned char*)buf, size);
+
+	if (is_tem) {
+		free(buf);
+	}
+	return size;
+}
+
+#define wrexact(fd, buf, len) write_exact((fd), (buf), (len))
+static int ssl_wrexact(struct ssl_wrap *ssl, int fd, void *data, size_t size)
+{
+	if ((size = ssl_crypt(ssl, data, size)) < 0) {
+		return -1;
+	}
+	wrexact(fd, ssl->ssl_buf, size);
+	return size;
+}
+
+#ifdef ratewrite
+#undef ratewrite
+#endif
+#define ratewrite(fd, live, buf, len) noncached_write(xch, (fd), (live), (buf), (len))
+static int ssl_ratewrite(struct ssl_wrap *ssl, xc_interface *xch, int fd, 
+		int live, void *data, size_t size) 
+{
+	if ((size = ssl_crypt(ssl, data, size)) < 0) {
+		return -1;
+	}
+	ratewrite(fd, live, ssl->ssl_buf, size);
+	return size;
+}
+
 struct timeval map_page_time[10];
 struct timeval map_page_time_end[10];
 unsigned int map_page_t_cnt[10];
@@ -1019,6 +1098,13 @@ void* send_patch(void* args)
 	char *page;
 	uint32_t dom;
 
+	/* Init SSL */
+	struct ssl_wrap *wrap = (struct ssl_wrap*)malloc(sizeof(struct ssl_wrap));
+	wrap->ssl_buf_len = PAGE_SIZE;
+	wrap->ssl_buf = (char*)malloc(wrap->ssl_buf_len);
+	wrap->cc = init_ssl_byname("aes128-cbc", "123Roger", CIPHER_ENCRYPT);
+	/* End SSL */
+
 	free(args);
 	hprintf("Slave start to connect\n");
 	if ((conn = mc_net_client(ip)) < 0) {
@@ -1026,24 +1112,25 @@ void* send_patch(void* args)
 	}
 
 	io_fd = conn;
-	/* Write Test */
 	hprintf("Slave connect success\n");
-#define wrexact(fd, buf, len) write_buffer(xch, last_iter, &ob, (fd), (buf), (len))
+
+
+	/* Always write directly */ //#define wrexact(fd, buf, len) write_buffer(xch, last_iter, &ob, (fd), (buf), (len))
+//#define wrexact(fd, buf, len) write_exact((fd), (buf), (len))
 #ifdef ratewrite
 #undef ratewrite
 #endif
-#define ratewrite(fd, live, buf, len) mc_ratewrite_buffer(xch, last_iter, &ob, (fd), (live), (buf), (len), id)
+	/* No rate control */
+#define ratewrite(fd, live, buf, len) noncached_write(xch, (fd), (live), (buf), (len))
 	
 	while(1) {
-
-		//hprintf("Slave into loop\n");
 		while (send_argu_dequeue(&argu) < 0) { // Empty
 			if (sender_iter_banner.cnt ==  1) {
 				int flag = XC_ITERATION_BARRIER;
 				int cnt = 0;
 				char buffer[10];
 				hprintf("Slave Meet Barrier\n");
-				wrexact(io_fd, &flag, sizeof(flag)); // * Write Mark
+				ssl_wrexact(wrap, io_fd, &flag, sizeof(flag)); // * Write Mark
 				outbuf_flush(xch, &ob, io_fd);
 
 				while ( (cnt = read(io_fd, buffer, strlen("OK"))) <= 0 ) { // * Read Mark
@@ -1065,7 +1152,6 @@ void* send_patch(void* args)
 			}
 			usleep(SLEEP_SHORT_TIME);
 		}
-		//hprintf("Slave Read Data\n");
 
 		batch = argu->batch;
 		pfn_batch = argu->pfn_batch;
@@ -1109,7 +1195,7 @@ void* send_patch(void* args)
 		if ( !ever_last_iter && argu->last_iter ) {
 			int flag = XC_LAST_ITER_FIRST;
 			ever_last_iter = 1;
-			wrexact(conn, &flag, sizeof(flag));  // * Write Mark
+			ssl_wrexact(wrap, conn, &flag, sizeof(flag));  // * Write Mark
 		}
 		
 
@@ -1170,7 +1256,7 @@ void* send_patch(void* args)
 		}
 
 		hprintf("Slave write %d pages, ip = %s\n", batch, ip);
-		if ( wrexact(io_fd, &batch, sizeof(unsigned int)) ) // * Write Mark
+		if ( ssl_wrexact(wrap, io_fd, &batch, sizeof(unsigned int)) ) // * Write Mark
 		{
 			PERROR("Error when writing to state file (2)");
 			goto out;
@@ -1179,7 +1265,7 @@ void* send_patch(void* args)
 		if ( sizeof(unsigned long) < sizeof(*pfn_type) )
 			for ( j = 0; j < batch; j++ )
 				((unsigned long *)pfn_type)[j] = pfn_type[j];
-		if ( wrexact(io_fd, pfn_type, sizeof(unsigned long)*batch) ) // * Write Mark
+		if ( ssl_wrexact(wrap, io_fd, pfn_type, sizeof(unsigned long)*batch) ) // * Write Mark
 		{
 			PERROR("Error when writing to state file (3)");
 			goto out;
@@ -1205,7 +1291,7 @@ void* send_patch(void* args)
 				   run of pages we may have previously acumulated */
 				if ( run )
 				{
-					if ( ratewrite(io_fd, live, 
+					if ( ssl_ratewrite(wrap, xch, io_fd, live, 
 								(char*)region_base+(PAGE_SIZE*(j-run)), 
 								PAGE_SIZE*run) != PAGE_SIZE*run ) // * Write Mark
 					{
@@ -1238,7 +1324,7 @@ void* send_patch(void* args)
 					goto out;
 				}
 
-				if ( ratewrite(io_fd, live, page, PAGE_SIZE) != PAGE_SIZE ) // * Write Mark
+				if ( ssl_ratewrite(wrap, xch, io_fd, live, page, PAGE_SIZE) != PAGE_SIZE ) // * Write Mark
 				{
 					PERROR("Error when writing to state file (4b)"
 							" (errno %d)", errno);
@@ -1256,7 +1342,7 @@ void* send_patch(void* args)
 		if ( run )
 		{
 			/* write out the last accumulated run of pages */
-			if ( ratewrite(io_fd, live, 
+			if ( ssl_ratewrite(wrap, xch, io_fd, live, 
 						(char*)region_base+(PAGE_SIZE*(j-run)), 
 						PAGE_SIZE*run) != PAGE_SIZE*run ) // * Write Mark
 			{
@@ -1279,7 +1365,7 @@ void* send_patch(void* args)
 out:
 	{
 		int flag = XC_PARA_MIGR_END;
-		wrexact(conn, &flag, sizeof(flag));
+		ssl_wrexact(wrap, conn, &flag, sizeof(flag));
 	}
 	return NULL;
 }
@@ -1593,6 +1679,9 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     }
 
   copypages:
+#ifdef wrexact
+#undef wrexact
+#endif
 #define wrexact(fd, buf, len) write_buffer(xch, last_iter, &ob, (fd), (buf), (len))
 #ifdef ratewrite
 #undef ratewrite
