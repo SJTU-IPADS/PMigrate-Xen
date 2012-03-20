@@ -1013,7 +1013,7 @@ static CipherContext *init_ssl_byname(char* cipher_name, char* password, int en)
 	return cc;
 }
 
-static int ssl_crypt(struct ssl_wrap *ssl, char *data, size_t size) {
+static int ssl_encrypt(struct ssl_wrap *ssl, char *data, size_t size) {
 	Cipher *cipher = ssl->cc->cipher;
 	char *buf = NULL;
 	int is_tem = 0;
@@ -1040,10 +1040,49 @@ static int ssl_crypt(struct ssl_wrap *ssl, char *data, size_t size) {
 	return size;
 }
 
+/* Calculate a new size 
+ * Resize ssl_buf if necessary */
+static int read_size_adjust(struct ssl_wrap *ssl, size_t size)
+{
+	Cipher *cipher = ssl->cc->cipher;
+	if (size < cipher->block_size) {
+		return cipher->block_size;
+	} else if ( (size % cipher->block_size) != 0 ) {
+		return -1;
+	} 
+
+	if (ssl->ssl_buf_len < size) {
+		ssl->ssl_buf_len = size;
+		ssl->ssl_buf = (char*)realloc(ssl->ssl_buf, size);
+	}
+	return size;
+}
+
+static int ssl_decrypt(struct ssl_wrap *ssl, char *data, size_t new_size, size_t ori_size) 
+{
+	Cipher *cipher = ssl->cc->cipher;
+	int is_tem = 0;
+	char *buf = NULL;
+	if (new_size == cipher->block_size) {
+		buf = (char*)calloc(cipher->block_size, 1);
+		is_tem = 1;
+	} else {
+		buf = data;
+	}
+
+	cipher_crypt(ssl->cc, (unsigned char*)buf, (unsigned char*)ssl->ssl_buf, new_size);
+
+	if (is_tem) {
+		memcpy(data, buf, ori_size);
+		free(buf);
+	}
+	return ori_size;
+}
+
 #define wrexact(fd, buf, len) write_exact((fd), (buf), (len))
 static int ssl_wrexact(struct ssl_wrap *ssl, int fd, void *data, size_t size)
 {
-	if ((size = ssl_crypt(ssl, data, size)) < 0) {
+	if ((size = ssl_encrypt(ssl, data, size)) < 0) {
 		return -1;
 	}
 	wrexact(fd, ssl->ssl_buf, size);
@@ -1057,11 +1096,21 @@ static int ssl_wrexact(struct ssl_wrap *ssl, int fd, void *data, size_t size)
 static int ssl_ratewrite(struct ssl_wrap *ssl, xc_interface *xch, int fd, 
 		int live, void *data, size_t size) 
 {
-	if ((size = ssl_crypt(ssl, data, size)) < 0) {
+	if ((size = ssl_encrypt(ssl, data, size)) < 0) {
 		return -1;
 	}
 	ratewrite(fd, live, ssl->ssl_buf, size);
 	return size;
+}
+
+static int ssl_read(struct ssl_wrap *ssl, int fd, void* data, size_t size)
+{
+	int new_size;
+	if ((new_size = read_size_adjust(ssl, size)) < 0) {
+		return -1;
+	}
+	read(fd, ssl->ssl_buf, new_size);
+	return ssl_decrypt(ssl, data, new_size, size);
 }
 
 struct timeval map_page_time[10];
@@ -1133,7 +1182,7 @@ void* send_patch(void* args)
 				ssl_wrexact(wrap, io_fd, &flag, sizeof(flag)); // * Write Mark
 				outbuf_flush(xch, &ob, io_fd);
 
-				while ( (cnt = read(io_fd, buffer, strlen("OK"))) <= 0 ) { // * Read Mark
+				while ( (cnt = ssl_read(wrap, io_fd, buffer, strlen("OK"))) <= 0 ) { // * Read Mark
 					usleep(SLEEP_SHORT_TIME);
 				}
 
