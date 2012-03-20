@@ -40,9 +40,12 @@ CTRL_SRCS-$(CONFIG_SunOS) += xc_solaris.c
 CTRL_SRCS-$(CONFIG_NetBSD) += xc_netbsd.c
 CTRL_SRCS-$(CONFIG_MiniOS) += xc_minios.c
 
+MC_SSL_DIR = ./mc_ssl
+MC_SSL = $(MC_SSL_DIR)/mc_ssl.c $(MC_SSL_DIR)/cipher.c $(MC_SSL_DIR)/cipher-3des1.c $(MC_SSL_DIR)/cipher-bf1.c $(MC_SSL_DIR)/cipher-ctr.c
+
 GUEST_SRCS-y :=
 GUEST_SRCS-y += xg_private.c xc_suspend.c
-GUEST_SRCS-$(CONFIG_MIGRATE) += xc_domain_restore.c xc_domain_save.c mc_queue.c ../libxl/mc_migration_helper.c #classicsong
+GUEST_SRCS-$(CONFIG_MIGRATE) += xc_domain_restore.c xc_domain_save.c mc_queue.c ../libxl/mc_migration_helper.c $(MC_SSL)#classicsong
 GUEST_SRCS-$(CONFIG_MIGRATE) += xc_offline_page.c
 GUEST_SRCS-$(CONFIG_HVM) += xc_hvm_build.c
 
