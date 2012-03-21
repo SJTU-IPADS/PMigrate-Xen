@@ -31,9 +31,9 @@ int ssl_encrypt(struct ssl_wrap *ssl, char *data, size_t size) {
 		size = cipher->block_size;
 		is_tem = 1;
 	} else if ( (size % cipher->block_size) != 0 ){ // Not mod block size
-		//fprintf(stderr, "Error: size is %lu\tblock_size is %d\n", size, cipher->block_size);
 		int tem_size = ((size / cipher->block_size) + 1) * cipher->block_size;
-		buf = (char*)calloc(tem_size, 1);
+		fprintf(stderr, "size is %lu\tnew_size is %d\n", size, tem_size);
+		buf = (char*)calloc(1, tem_size);
 		memcpy(buf, data, size);
 		size = tem_size;
 		is_tem = 1;
