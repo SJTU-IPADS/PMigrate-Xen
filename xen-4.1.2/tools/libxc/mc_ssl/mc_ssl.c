@@ -96,3 +96,12 @@ int ssl_read(struct ssl_wrap *ssl, int fd, void* data, size_t size)
 	read(fd, ssl->ssl_buf, new_size);
 	return ssl_decrypt(ssl, data, new_size, size);
 }
+
+int ssl_write(struct ssl_wrap *ssl, int fd, void* data, size_t size)
+{
+	if ((size = ssl_encrypt(ssl, data, size)) < 0) {
+		return -1;
+	}
+	write(fd, ssl->ssl_buf, size);
+	return size;
+}

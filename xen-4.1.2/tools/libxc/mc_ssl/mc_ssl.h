@@ -13,4 +13,5 @@ int ssl_encrypt(struct ssl_wrap *ssl, char *data, size_t size);
 int read_size_adjust(struct ssl_wrap *ssl, size_t size);
 int ssl_decrypt(struct ssl_wrap *ssl, char *data, size_t new_size, size_t ori_size);
 int ssl_read(struct ssl_wrap *ssl, int fd, void* data, size_t size);
+int ssl_write(struct ssl_wrap *ssl, int fd, void* data, size_t size);
 #endif

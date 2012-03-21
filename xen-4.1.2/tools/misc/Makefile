@@ -1,7 +1,7 @@
 XEN_ROOT=$(CURDIR)/../..
 include $(XEN_ROOT)/tools/Rules.mk
 
-CFLAGS   += -Werror
+CFLAGS   += -Werror -lssl
 
 INCLUDES += -I $(XEN_XC)
 INCLUDES += -I $(XEN_LIBXC)

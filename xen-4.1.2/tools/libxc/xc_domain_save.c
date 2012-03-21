@@ -1047,9 +1047,13 @@ void* send_patch(void* args)
 
 	/* Init SSL */
 	struct ssl_wrap *wrap = (struct ssl_wrap*)malloc(sizeof(struct ssl_wrap));
+	struct ssl_wrap *de_wrap = (struct ssl_wrap*)malloc(sizeof(struct ssl_wrap));
 	wrap->ssl_buf_len = PAGE_SIZE;
 	wrap->ssl_buf = (char*)malloc(wrap->ssl_buf_len);
 	wrap->cc = init_ssl_byname("aes128-cbc", "123Roger", CIPHER_ENCRYPT);
+	de_wrap->ssl_buf_len = PAGE_SIZE;
+	de_wrap->ssl_buf = (char*)malloc(wrap->ssl_buf_len);
+	de_wrap->cc = init_ssl_byname("aes128-cbc", "123Roger", CIPHER_DECRYPT);
 	/* End SSL */
 
 	free(args);
@@ -1080,7 +1084,7 @@ void* send_patch(void* args)
 				ssl_wrexact(wrap, io_fd, &flag, sizeof(flag)); // * Write Mark
 				outbuf_flush(xch, &ob, io_fd);
 
-				while ( (cnt = ssl_read(wrap, io_fd, buffer, strlen("OK"))) <= 0 ) { // * Read Mark
+				while ( (cnt = ssl_read(de_wrap, io_fd, buffer, strlen("OK"))) <= 0 ) { // * Read Mark
 					usleep(SLEEP_SHORT_TIME);
 				}
 

@@ -33,6 +33,8 @@
 #include <xen/hvm/ioreq.h>
 #include <xen/hvm/params.h>
 #include "../libxl/mc_migration_helper.h"
+#include "./mc_ssl/cipher.h"
+#include "./mc_ssl/mc_ssl.h"
 
 /* 
  * Roger 
@@ -745,6 +747,217 @@ static void pagebuf_free(pagebuf_t* buf)
     }
 }
 
+static int ssl_rdexact(struct ssl_wrap *ssl, int fd, void* data, size_t size, 
+		xc_interface *xch, struct restore_ctx *ctx)
+{
+	int new_size;
+	if ((new_size = read_size_adjust(ssl, size)) < 0) {
+		return -1;
+	}
+	RDEXACT(fd, ssl->ssl_buf, new_size);
+	return ssl_decrypt(ssl, data, new_size, size);
+}
+
+#define ssl_RDEXACT(_ssl, _fd, _data, _size) ssl_rdexact((_ssl), (_fd), (_data), (_size), xch, ctx)
+
+static int slave_pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
+                           pagebuf_t* buf, int fd, uint32_t dom, struct ssl_wrap* de_wrap)
+{
+    int count, countpages, oldcount, i;
+    void* ptmp;
+
+	hprintf("function pagebuf_get_one\n");
+    if ( ssl_RDEXACT(de_wrap, fd, &count, sizeof(count)) )
+    {
+        PERROR("Error when reading batch size");
+        return -1;
+    }
+
+    // DPRINTF("reading batch of %d pages\n", count);
+	if (count > 0) {
+		hprintf("Pagebuf count: %d\n", count);
+	}
+
+    switch ( count )
+    {
+    case 0:
+        // DPRINTF("Last batch read\n");
+        return 0;
+
+	case XC_PARA_MIGR_END: 
+		buf->nr_pages = 0;
+		buf->nr_physpages = 1;
+		return 1;
+
+	case XC_LAST_ITER_FIRST: 
+		buf->nr_pages = 1;
+		buf->nr_physpages = 0;
+		return 1;
+
+	case XC_ITERATION_BARRIER:
+		buf->nr_pages = 0;
+		buf->nr_physpages = 0;
+		return 1;
+
+    case XC_SAVE_ID_ENABLE_VERIFY_MODE:
+        DPRINTF("Entering page verify mode\n");
+        buf->verify = 1;
+        return slave_pagebuf_get_one(xch, ctx, buf, fd, dom, de_wrap);
+
+    case XC_SAVE_ID_VCPU_INFO:
+		hprintf("Real VCPU_INFO\n");
+        buf->new_ctxt_format = 1;
+        if ( ssl_RDEXACT(de_wrap, fd, &buf->max_vcpu_id, sizeof(buf->max_vcpu_id)) ||
+             buf->max_vcpu_id >= 64 || ssl_RDEXACT(de_wrap, fd, &buf->vcpumap,
+                                               sizeof(uint64_t)) ) {
+            PERROR("Error when reading max_vcpu_id");
+            return -1;
+        }
+        // DPRINTF("Max VCPU ID: %d, vcpumap: %llx\n", buf->max_vcpu_id, buf->vcpumap);
+		//return 0;
+        return slave_pagebuf_get_one(xch, ctx, buf, fd, dom, de_wrap);
+
+    case XC_SAVE_ID_HVM_IDENT_PT:
+        /* Skip padding 4 bytes then read the EPT identity PT location. */
+        if ( ssl_RDEXACT(de_wrap, fd, &buf->identpt, sizeof(uint32_t)) ||
+             ssl_RDEXACT(de_wrap, fd, &buf->identpt, sizeof(uint64_t)) )
+        {
+            PERROR("error read the address of the EPT identity map");
+            return -1;
+        }
+        // DPRINTF("EPT identity map address: %llx\n", buf->identpt);
+        return slave_pagebuf_get_one(xch, ctx, buf, fd, dom, de_wrap);
+
+    case XC_SAVE_ID_HVM_VM86_TSS:
+        /* Skip padding 4 bytes then read the vm86 TSS location. */
+        if ( ssl_RDEXACT(de_wrap, fd, &buf->vm86_tss, sizeof(uint32_t)) ||
+             ssl_RDEXACT(de_wrap, fd, &buf->vm86_tss, sizeof(uint64_t)) )
+        {
+            PERROR("error read the address of the vm86 TSS");
+            return -1;
+        }
+        // DPRINTF("VM86 TSS location: %llx\n", buf->vm86_tss);
+        return slave_pagebuf_get_one(xch, ctx, buf, fd, dom, de_wrap);
+
+    case XC_SAVE_ID_TMEM:
+        DPRINTF("xc_domain_restore start tmem\n");
+		hprintf("Real TMEM\n");
+        if ( xc_tmem_restore(xch, dom, fd) ) {
+            PERROR("error reading/restoring tmem");
+            return -1;
+        }
+        return slave_pagebuf_get_one(xch, ctx, buf, fd, dom, de_wrap);
+
+    case XC_SAVE_ID_TMEM_EXTRA:
+		hprintf("Real TMEM Extra\n");
+        if ( xc_tmem_restore_extra(xch, dom, fd) ) {
+            PERROR("error reading/restoring tmem extra");
+            return -1;
+        }
+		//return 0;
+        return slave_pagebuf_get_one(xch, ctx, buf, fd, dom, de_wrap);
+
+    case XC_SAVE_ID_TSC_INFO:
+    {
+        uint32_t tsc_mode, khz, incarn;
+        uint64_t nsec;
+		hprintf("Real TSC info\n");
+        if ( ssl_RDEXACT(de_wrap, fd, &tsc_mode, sizeof(uint32_t)) ||
+             ssl_RDEXACT(de_wrap, fd, &nsec, sizeof(uint64_t)) ||
+             ssl_RDEXACT(de_wrap, fd, &khz, sizeof(uint32_t)) ||
+             ssl_RDEXACT(de_wrap, fd, &incarn, sizeof(uint32_t)) ||
+             xc_domain_set_tsc_info(xch, dom, tsc_mode, nsec, khz, incarn) ) {
+            PERROR("error reading/restoring tsc info");
+            return -1;
+        }
+		return 0;
+        //return pagebuf_get_one(xch, ctx, buf, fd, dom);
+    }
+
+    case XC_SAVE_ID_HVM_CONSOLE_PFN :
+        /* Skip padding 4 bytes then read the console pfn location. */
+        if ( ssl_RDEXACT(de_wrap, fd, &buf->console_pfn, sizeof(uint32_t)) ||
+             ssl_RDEXACT(de_wrap, fd, &buf->console_pfn, sizeof(uint64_t)) )
+        {
+            PERROR("error read the address of the console pfn");
+            return -1;
+        }
+        // DPRINTF("console pfn location: %llx\n", buf->console_pfn);
+        return slave_pagebuf_get_one(xch, ctx, buf, fd, dom, de_wrap);
+
+    case XC_SAVE_ID_LAST_CHECKPOINT:
+        ctx->last_checkpoint = 1;
+        // DPRINTF("last checkpoint indication received");
+        return slave_pagebuf_get_one(xch, ctx, buf, fd, dom, de_wrap);
+
+    case XC_SAVE_ID_HVM_ACPI_IOPORTS_LOCATION:
+        /* Skip padding 4 bytes then read the acpi ioport location. */
+        if ( ssl_RDEXACT(de_wrap, fd, &buf->acpi_ioport_location, sizeof(uint32_t)) ||
+             ssl_RDEXACT(de_wrap, fd, &buf->acpi_ioport_location, sizeof(uint64_t)) )
+        {
+            PERROR("error read the acpi ioport location");
+            return -1;
+        }
+        return slave_pagebuf_get_one(xch, ctx, buf, fd, dom, de_wrap);
+
+    default:
+        if ( (count > MAX_BATCH_SIZE) || (count < 0) ) {
+            ERROR("Max batch size exceeded (%d). Giving up.", count);
+            errno = EMSGSIZE;
+            return -1;
+        }
+        break;
+    }
+
+    oldcount = buf->nr_pages;
+    buf->nr_pages += count;
+    if (!buf->pfn_types) {
+        if (!(buf->pfn_types = malloc(buf->nr_pages * sizeof(*(buf->pfn_types))))) {
+            ERROR("Could not allocate PFN type buffer");
+            return -1;
+        }
+    } else {
+        if (!(ptmp = realloc(buf->pfn_types, buf->nr_pages * sizeof(*(buf->pfn_types))))) {
+            ERROR("Could not reallocate PFN type buffer");
+            return -1;
+        }
+        buf->pfn_types = ptmp;
+    }
+    if ( ssl_RDEXACT(de_wrap, fd, buf->pfn_types + oldcount, count * sizeof(*(buf->pfn_types)))) {
+        PERROR("Error when reading region pfn types");
+        return -1;
+    }
+
+    countpages = count;
+    for (i = oldcount; i < buf->nr_pages; ++i)
+        if ((buf->pfn_types[i] & XEN_DOMCTL_PFINFO_LTAB_MASK) == XEN_DOMCTL_PFINFO_XTAB)
+            --countpages;
+
+    if (!countpages)
+        return count;
+
+    oldcount = buf->nr_physpages;
+    buf->nr_physpages += countpages;
+    if (!buf->pages) {
+        if (!(buf->pages = malloc(buf->nr_physpages * PAGE_SIZE))) {
+            ERROR("Could not allocate page buffer");
+            return -1;
+        }
+    } else {
+        if (!(ptmp = realloc(buf->pages, buf->nr_physpages * PAGE_SIZE))) {
+            ERROR("Could not reallocate page buffer");
+            return -1;
+        }
+        buf->pages = ptmp;
+    }
+    if ( ssl_RDEXACT(de_wrap, fd, buf->pages + oldcount * PAGE_SIZE, countpages * PAGE_SIZE) ) {
+        PERROR("Error when reading pages");
+        return -1;
+    }
+
+    return count;
+}
+
 static int pagebuf_get_one(xc_interface *xch, struct restore_ctx *ctx,
                            pagebuf_t* buf, int fd, uint32_t dom)
 {
@@ -1167,6 +1380,17 @@ void* receive_patch(void* args)
 	char* ip = (char*) args;
     pagebuf_t* pagebuf;
 
+	/* Init SSL */
+	struct ssl_wrap *wrap = (struct ssl_wrap*)malloc(sizeof(struct ssl_wrap));
+	struct ssl_wrap *de_wrap = (struct ssl_wrap*)malloc(sizeof(struct ssl_wrap));
+	wrap->ssl_buf_len = PAGE_SIZE;
+	wrap->ssl_buf = (char*)malloc(wrap->ssl_buf_len);
+	wrap->cc = init_ssl_byname("aes128-cbc", "123Roger", CIPHER_ENCRYPT);
+	de_wrap->ssl_buf_len = PAGE_SIZE;
+	de_wrap->ssl_buf = (char*)malloc(wrap->ssl_buf_len);
+	de_wrap->cc = init_ssl_byname("aes128-cbc", "123Roger", CIPHER_DECRYPT);
+	/* End SSL */
+
 	hprintf("Slave start to connect\n");
 	if ((conn = mc_net_server(ip)) < 0) {
 		fprintf(stderr, "Net Server Error\n");
@@ -1181,7 +1405,7 @@ void* receive_patch(void* args)
 
 	pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
     pagebuf_init(pagebuf);
-	while ( (pagecount = pagebuf_get_one(mc_xch, mc_ctx, pagebuf, conn, mc_dom)) > 0 ) {
+	while ( (pagecount = slave_pagebuf_get_one(mc_xch, mc_ctx, pagebuf, conn, mc_dom, de_wrap)) > 0 ) {
 		hprintf("Slave Read Page, ip = %s, read %d pages\n", ip, pagecount);
 		if (pagebuf->nr_pages == 0 && pagebuf->nr_physpages == 1) { // finish
 			hprintf("1\n");
@@ -1193,7 +1417,7 @@ void* receive_patch(void* args)
 
 			char* return_val= "OK"; // This should be picked out
 			pthread_barrier_wait(&recv_iter_barr);
-			write(conn, return_val, strlen(return_val));
+			ssl_write(wrap, conn, return_val, strlen(return_val));
 			hprintf("Write OK Back\n");
 			
 			free(pagebuf);
