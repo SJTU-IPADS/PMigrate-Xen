@@ -27,7 +27,7 @@ TARGET_PATH?=$(SRC_PATH)/target-$(TARGET_BASE_ARCH)
 VPATH=$(SRC_PATH):$(TARGET_PATH):$(SRC_PATH)/hw
 CPPFLAGS=-I. -I.. -I$(TARGET_PATH) -I$(SRC_PATH) -MMD -MT $@ -MP -DNEED_CPU_H
 #CFLAGS+=-Werror
-LIBS= -lssl
+LIBS=
 # user emulator name
 ifndef TARGET_ARCH2
 TARGET_ARCH2=$(TARGET_ARCH)
@@ -734,7 +734,7 @@ include $(QEMU_ROOT)/$(TARGET_DIRS)/hooks.mak
 
 all: $(PROGS)
 
-$(QEMU_PROG): LIBS += $(SDL_LIBS) $(COCOA_LIBS) $(CURSES_LIBS) $(BRLAPI_LIBS) $(VDE_LIBS)
+$(QEMU_PROG): LIBS += $(SDL_LIBS) $(COCOA_LIBS) $(CURSES_LIBS) $(BRLAPI_LIBS) $(VDE_LIBS) -lssl
 
 $(QEMU_PROG): $(OBJS) ../libqemu_common.a libqemu.a
 	$(LINK)
