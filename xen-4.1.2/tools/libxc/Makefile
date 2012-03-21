@@ -105,8 +105,6 @@ ifneq ($(stubdom),y)
 LIB += xenctrl_osdep_ENOSYS.so
 endif
 
-LIB += -lssl
-
 .PHONY: all
 all: build
 
