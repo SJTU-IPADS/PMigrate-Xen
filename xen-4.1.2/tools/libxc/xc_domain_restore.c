@@ -755,7 +755,8 @@ static int ssl_rdexact(struct ssl_wrap *ssl, int fd, void* data, size_t size,
 		return -1;
 	}
 	RDEXACT(fd, ssl->ssl_buf, new_size);
-	return ssl_decrypt(ssl, data, new_size, size);
+	ssl_decrypt(ssl, data, new_size, size);
+	return 0;
 }
 
 #define ssl_RDEXACT(_ssl, _fd, _data, _size) ssl_rdexact((_ssl), (_fd), (_data), (_size), xch, ctx)

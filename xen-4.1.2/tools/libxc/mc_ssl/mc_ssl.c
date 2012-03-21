@@ -103,5 +103,5 @@ int ssl_write(struct ssl_wrap *ssl, int fd, void* data, size_t size)
 		return -1;
 	}
 	write(fd, ssl->ssl_buf, size);
-	return size;
+	return 0;
 }

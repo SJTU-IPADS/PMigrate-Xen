@@ -994,7 +994,7 @@ static int ssl_wrexact(struct ssl_wrap *ssl, int fd, void *data, size_t size)
 		return -1;
 	}
 	wrexact(fd, ssl->ssl_buf, size);
-	return size;
+	return 0;
 }
 
 #ifdef ratewrite
@@ -1008,7 +1008,7 @@ static int ssl_ratewrite(struct ssl_wrap *ssl, xc_interface *xch, int fd,
 		return -1;
 	}
 	ratewrite(fd, live, ssl->ssl_buf, size);
-	return size;
+	return 0;
 }
 
 struct timeval map_page_time[10];
@@ -1072,7 +1072,7 @@ void* send_patch(void* args)
 #undef ratewrite
 #endif
 	/* No rate control */
-#define ratewrite(fd, live, buf, len) noncached_write(xch, (fd), (live), (buf), (len))
+//#define ratewrite(fd, live, buf, len) noncached_write(xch, (fd), (live), (buf), (len))
 	
 	while(1) {
 		while (send_argu_dequeue(&argu) < 0) { // Empty
