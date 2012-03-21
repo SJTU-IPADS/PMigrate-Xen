@@ -1008,7 +1008,7 @@ static int ssl_ratewrite(struct ssl_wrap *ssl, xc_interface *xch, int fd,
 		return -1;
 	}
 	ratewrite(fd, live, ssl->ssl_buf, size);
-	return 0;
+	return size;
 }
 
 struct timeval map_page_time[10];
