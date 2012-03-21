@@ -31,8 +31,12 @@ int ssl_encrypt(struct ssl_wrap *ssl, char *data, size_t size) {
 		size = cipher->block_size;
 		is_tem = 1;
 	} else if ( (size % cipher->block_size) != 0 ){ // Not mod block size
-		fprintf(stderr, "Error: size is %lu\tblock_size is %d\n", size, cipher->block_size);
-		return -1;
+		//fprintf(stderr, "Error: size is %lu\tblock_size is %d\n", size, cipher->block_size);
+		int tem_size = ((size / cipher->block_size) + 1) * cipher->block_size;
+		buf = (char*)calloc(tem_size, 1);
+		memcpy(buf, data, size);
+		size = tem_size;
+		is_tem = 1;
 	} else {
 		buf = data;
 		if (ssl->ssl_buf_len < size) { // Resize ssl_buf
@@ -57,7 +61,7 @@ int read_size_adjust(struct ssl_wrap *ssl, size_t size)
 	if (size < cipher->block_size) {
 		return cipher->block_size;
 	} else if ( (size % cipher->block_size) != 0 ) {
-		return -1;
+		return ((size / cipher->block_size) + 1) * cipher->block_size;
 	} 
 
 	if (ssl->ssl_buf_len < size) {
