@@ -80,6 +80,9 @@ int ssl_decrypt(struct ssl_wrap *ssl, char *data, size_t new_size, size_t ori_si
 	if (new_size == cipher->block_size) {
 		buf = (char*)calloc(cipher->block_size, 1);
 		is_tem = 1;
+	} else if (ori_size != new_size){
+		buf = (char*)calloc(1, new_size);
+		is_tem = 1;
 	} else {
 		buf = data;
 	}

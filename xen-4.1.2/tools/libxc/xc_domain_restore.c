@@ -1388,7 +1388,7 @@ void* receive_patch(void* args)
 	wrap->ssl_buf = (char*)malloc(wrap->ssl_buf_len);
 	wrap->cc = init_ssl_byname("aes128-cbc", "123Roger", CIPHER_ENCRYPT);
 	de_wrap->ssl_buf_len = PAGE_SIZE;
-	de_wrap->ssl_buf = (char*)malloc(wrap->ssl_buf_len);
+	de_wrap->ssl_buf = (char*)malloc(de_wrap->ssl_buf_len);
 	de_wrap->cc = init_ssl_byname("aes128-cbc", "123Roger", CIPHER_DECRYPT);
 	/* End SSL */
 
