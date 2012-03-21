@@ -42,6 +42,7 @@ CTRL_SRCS-$(CONFIG_MiniOS) += xc_minios.c
 
 MC_SSL_DIR = ./mc_ssl
 MC_SSL = $(MC_SSL_DIR)/mc_ssl.c $(MC_SSL_DIR)/cipher.c $(MC_SSL_DIR)/cipher-3des1.c $(MC_SSL_DIR)/cipher-bf1.c $(MC_SSL_DIR)/cipher-ctr.c
+SSL_LIB = -lssl
 
 GUEST_SRCS-y :=
 GUEST_SRCS-y += xg_private.c xc_suspend.c
@@ -198,7 +199,7 @@ xc_dom_bzimageloader.opic: CFLAGS += $(call zlib-options,D)
 
 libxenguest.so.$(MAJOR).$(MINOR): COMPRESSION_LIBS = $(call zlib-options,l)
 libxenguest.so.$(MAJOR).$(MINOR): $(GUEST_PIC_OBJS) libxenctrl.so
-	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libxenguest.so.$(MAJOR) $(SHLIB_LDFLAGS) -o $@ $(GUEST_PIC_OBJS) $(COMPRESSION_LIBS) -lz -lxenctrl $(PTHREAD_LIBS)
+	$(CC) $(CFLAGS) $(LDFLAGS) -Wl,$(SONAME_LDFLAG) -Wl,libxenguest.so.$(MAJOR) $(SHLIB_LDFLAGS) -o $@ $(GUEST_PIC_OBJS) $(COMPRESSION_LIBS) -lz -lxenctrl $(PTHREAD_LIBS) -lssl
 
 xenctrl_osdep_ENOSYS.so: $(OSDEP_PIC_OBJS) libxenctrl.so
 	$(CC) -g $(CFLAGS) $(LDFLAGS) $(SHLIB_LDFLAGS) -o $@ $(OSDEP_PIC_OBJS) -lxenctrl
