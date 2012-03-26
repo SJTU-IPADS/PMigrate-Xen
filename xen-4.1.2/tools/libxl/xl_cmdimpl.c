@@ -2672,12 +2672,20 @@ static void migrate_domain(const char *domain_spec, char *rune,
 			pthread_create(pids + i, NULL, &send_patch, argu);
 		}
 
-		/* Init CPU Affnity */
+		/* Init CPU Affnity 
+		 * Slave 1 2 3 4, Master Others */
 		for (i = 0; i <dest_cnt; i++) {
 			CPU_ZERO(&cpu_set);
 			CPU_SET(i + 1, &cpu_set);
 			pthread_setaffinity_np(pids[i], sizeof(cpu_set), &cpu_set);
 		}
+
+		CPU_ZERO(&cpu_set);
+		for (i = 0; i < 12; i++) {
+			if (i != 1 && i != 2 && i != 3 && i!= 4)
+				CPU_SET(i, &cpu_set);
+		}
+		pthread_setaffinity_np(pthread_self(), sizeof(cpu_set), &cpu_set);
 	}
 	
     if (rc) {
