@@ -37,6 +37,7 @@
 #include <inttypes.h>
 #include <pthread.h>
 #include <execinfo.h>
+#include <sched.h>
 
 #include "libxl.h"
 #include "libxl_utils.h"
@@ -2603,6 +2604,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
 	/* Roger, Multi Flag */
 	int multi = 0;
 	pthread_t *pids = NULL;
+	cpu_set_t cpu_set;
 	if ( dests ) {
 		multi = 1;
 		/* Add more ips to the rune */
@@ -2661,12 +2663,20 @@ static void migrate_domain(const char *domain_spec, char *rune,
 	{
 		int i;
 		pids = (pthread_t*) malloc(sizeof(pthread_t) * dest_cnt);
+
 		init_banner(&sender_iter_banner, dest_cnt + 1);
 		for (i = 0; i < dest_cnt; i++) {
 			send_slave_argu_t *argu = malloc(sizeof(send_slave_argu_t));
 			argu->ip = dests[i];
 			argu->id = i;
 			pthread_create(pids + i, NULL, &send_patch, argu);
+		}
+
+		/* Init CPU Affnity */
+		for (i = 0; i <dest_cnt; i++) {
+			CPU_ZERO(&cpu_set);
+			CPU_SET(i + 1, &cpu_set);
+			pthread_setaffinity_np(pids[i], sizeof(cpu_set), &cpu_set);
 		}
 	}
 	
