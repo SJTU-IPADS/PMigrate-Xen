@@ -1321,19 +1321,42 @@ out:
 	return NULL;
 }
 
-struct timeval dirty_page_time;
-struct timeval dirty_page_time_end;
-struct timeval except_last_time;
-struct timeval except_last_time_end;
-struct timeval last_iter_time;
-struct timeval last_iter_time_end;
-struct timeval down_time;
-struct timeval down_time_end;
-struct timeval total_migration_time;
-struct timeval total_migration_time_end;
+
+#define Proc_profile
+#ifdef  Proc_profile
+/* Time Profile */
+#define DEFINE_time(_t)     \
+	    struct timeval _t;  \
+struct timeval _t##_end
+
+#define DEFINE_for_time(_t) \
+	    DEFINE_time(_t);    \
+unsigned long long _t##_total
+
+#define start_profile(_t) \
+	    gettimeofday(&_t, NULL)
+
+#define end_profile(_t) \
+	    gettimeofday(&_t##_end, NULL)
+
+DEFINE_time(except_last_time);
+DEFINE_time(last_iter_time);
+DEFINE_time(down_time);
+DEFINE_time(total_migration_time);
+
 unsigned long long total_map_time = 0;
 unsigned long send_page_cnt = 0;
 
+/* Count Profile */
+typedef struct{
+	unsigned long send_page_cnt;
+} prof_cnt_t;
+
+static void init_prof_cnt (prof_cnt_t *cnt){
+	bzero(cnt, sizeof(prof_cnt_t));
+}
+
+#endif
 extern unsigned long long ioctl_time;
 extern unsigned int ioctl_ts;
 
@@ -1409,6 +1432,9 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
     int completed = 0;
 
+	prof_cnt_t prof_cnt;
+	init_prof_cnt(&prof_cnt);
+
 	gettimeofday(&total_migration_time, NULL);
 	hprintf("Enter Domain Save\n");
 	bzero(m_page, sizeof(unsigned long long) * 10);
@@ -1470,7 +1496,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     if ( live )
     {
         /* Live suspend. Enable log-dirty mode. */
-		gettimeofday(&dirty_page_time, NULL);
         if ( xc_shadow_control(xch, dom,
                                XEN_DOMCTL_SHADOW_OP_ENABLE_LOGDIRTY,
                                NULL, 0, NULL, 0, NULL) < 0 )
@@ -1492,8 +1517,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 goto out;
             }
         }
-		gettimeofday(&dirty_page_time_end, NULL);
-		fprintf(stderr, "Dirty Page Time %lu\n", time_between(dirty_page_time, dirty_page_time_end));
 
         /* Enable qemu-dm logging dirty pages to xen */
         if ( hvm && callbacks->switch_qemu_logdirty(dom, 1, callbacks->data) )
@@ -1805,7 +1828,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             }
 #endif
 
-			send_page_cnt += batch;
+			prof_cnt.send_page_cnt += batch;
 
 			//hprintf("Befere Page Equeue\n");
 			/* batch, pfn_batch */
@@ -1994,6 +2017,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         xc_report_progress_step(xch, dinfo->p2m_size, dinfo->p2m_size);
 
         total_sent += sent_this_iter;
+		fprintf(stderr, "This iteration send %u pages\n", sent_this_iter);
 
         if ( last_iter )
         {
@@ -2076,8 +2100,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         }
     } /* end of infinite for loop */
 
-	gettimeofday(&last_iter_time_end, NULL);
-	fprintf(stderr, "Last iteration time %lu\n", time_between(last_iter_time, last_iter_time_end));
     DPRINTF("All memory is saved\n");
 
 	/* Send end of memory to receiver */
@@ -2086,6 +2108,9 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 		//write(io_fd, mc_end_string, strlen(mc_end_string));
 		pthread_barrier_wait(&sender_iter_banner.barr);
 	}
+	gettimeofday(&last_iter_time_end, NULL);
+	fprintf(stderr, "Last iteration time %lu\n", time_between(last_iter_time, last_iter_time_end));
+
 	hprintf("Master After Barrier\n");
 
     {
@@ -2533,7 +2558,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 		}
 	}
 	fprintf(stderr, "\nTotal Map Count: %u\n", total_map_cnt);
-	fprintf(stderr, "\nTotal Send Page: %lu\n", send_page_cnt);
+	fprintf(stderr, "\nTotal Send Page: %lu\n", prof_cnt.send_page_cnt);
 
 	fprintf(stderr, "IOctl time %llu\n", ioctl_time);
 	fprintf(stderr, "IOctl cnt %d\n", ioctl_ts);
