@@ -134,6 +134,8 @@ void strlist_to_array(struct ip_list *list, char ***dest, char ***port) {
 	for (i = 0, l = list; l != NULL; i++, l = l->next) {    
 		(*dest)[i] = strtok(l->host_port, ":");    
 		(*port)[i] = strtok(NULL, ":");    
+		printf("dest: %s\n", (*dest)[i]);
+		printf("port: %s\n", (*port)[i]);
 	}    
 	return;    
 }
