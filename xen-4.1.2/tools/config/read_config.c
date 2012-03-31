@@ -39,6 +39,9 @@ static cfg_pair_t* parse_oneline(char *line)
 		return NULL;
 	name = (char*)malloc(strlen(str));
 	strcpy(name, str);
+#ifdef SJC_DEBUG
+		printf("DEBUG: Parsing name: %s\n", name);
+#endif
 
 	/* Parse List */
 	while ((str = strtok(NULL, token)) != NULL) {
