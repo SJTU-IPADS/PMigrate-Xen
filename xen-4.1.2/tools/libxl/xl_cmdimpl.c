@@ -3149,6 +3149,7 @@ int main_migrate(int argc, char **argv)
 		param = parse_file(argv[optind + 1]); 
 		strlist_to_array(param->dest_ip_list, &dests, &ports);
 		host = dests[0]; // First is the main Address
+		dest_cnt = param->num_ips;
 		slave_cnt = dest_cnt; // Store in a global variable
 	} else {
 		host = argv[optind + 1];
