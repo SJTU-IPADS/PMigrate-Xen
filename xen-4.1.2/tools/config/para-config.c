@@ -125,3 +125,19 @@ int reveal_param(struct parallel_param *param) {
 	}
 	return 0;
 }
+
+void strlist_to_array(struct ip_list *list, char ***dest, char ***port) {
+	int i = 0;
+	struct ip_list *l = NULL;
+	for (l = list; l != NULL; l = l->next) {
+		i++;
+	}
+	*dest = (char **) malloc(sizeof(char *) * i);
+	*port = (char **) malloc(sizeof(char *) * i);
+	for (i = 0, l = list; l != NULL; i++, l = l->next) {
+		(*dest)[i] = strtok(l->host_port, ":");
+		(*port)[i] = strtok(NULL, ":");
+	}
+	return;
+}
+

@@ -41,7 +41,7 @@ struct cfg_list{
 	cfg_pair_t *pair;
 }; 
 
-void init_config();
+void init_config(void);
 int read_cfg_file(char *file_path, cfg_list** list);
 int reveal_config_list(cfg_list* list);
 cfg_value_type cfg_which_type(char* name, cfg_list *list);

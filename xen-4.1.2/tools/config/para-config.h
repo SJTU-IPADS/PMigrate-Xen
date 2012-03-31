@@ -3,7 +3,7 @@
 
 struct ip_list {
     struct ip_list *next;
-    const char *host_port;
+    char *host_port;
     int len;
 };
 
@@ -27,4 +27,5 @@ struct parallel_param {
 
 extern struct parallel_param *parse_file(char *file);
 extern int reveal_param(struct parallel_param *param);
+extern void strlist_to_array(struct ip_list *list, char ***dest, char ***port);
 #endif

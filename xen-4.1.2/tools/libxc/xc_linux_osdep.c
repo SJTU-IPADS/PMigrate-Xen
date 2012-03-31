@@ -171,17 +171,6 @@ static void *linux_privcmd_map_foreign_batch(xc_interface *xch, xc_osdep_handle 
     return addr;
 }
 
-struct timeval ioctl_per_time;
-struct timeval ioctl_per_time_end;
-unsigned long long ioctl_time = 0;
-unsigned int ioctl_ts = 0;
-
-static unsigned long
-time_between(struct timeval begin, struct timeval end)
-{
-	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
-}
-
 static void *linux_privcmd_map_foreign_bulk(xc_interface *xch, xc_osdep_handle h,
                                             uint32_t dom, int prot,
                                             const xen_pfn_t *arr, int *err, unsigned int num)
@@ -206,14 +195,7 @@ static void *linux_privcmd_map_foreign_bulk(xc_interface *xch, xc_osdep_handle h
     ioctlx.arr = arr;
     ioctlx.err = err;
 
-	gettimeofday(&ioctl_per_time, NULL);
     rc = ioctl(fd, IOCTL_PRIVCMD_MMAPBATCH_V2, &ioctlx);
-	gettimeofday(&ioctl_per_time_end, NULL);
-	ioctl_time += time_between(ioctl_per_time, ioctl_per_time_end);
-	ioctl_ts++;
-
-	//if (rc < 0)
-	//	fprintf(stderr, "rc == %d\n", rc);
 
     if ( rc < 0 && errno == ENOENT )
     {

@@ -1348,18 +1348,14 @@ unsigned long long total_map_time = 0;
 unsigned long send_page_cnt = 0;
 
 /* Count Profile */
-typedef struct{
+typedef struct {
 	unsigned long send_page_cnt;
 } prof_cnt_t;
 
 static void init_prof_cnt (prof_cnt_t *cnt){
 	bzero(cnt, sizeof(prof_cnt_t));
 }
-
 #endif
-extern unsigned long long ioctl_time;
-extern unsigned int ioctl_ts;
-
 
 int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iters,
                    uint32_t max_factor, uint32_t flags,
@@ -2559,9 +2555,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 	}
 	fprintf(stderr, "\nTotal Map Count: %u\n", total_map_cnt);
 	fprintf(stderr, "\nTotal Send Page: %lu\n", prof_cnt.send_page_cnt);
-
-	fprintf(stderr, "IOctl time %llu\n", ioctl_time);
-	fprintf(stderr, "IOctl cnt %d\n", ioctl_ts);
 
     return !!rc;
 }

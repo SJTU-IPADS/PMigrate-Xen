@@ -44,6 +44,7 @@
 #include "libxlutil.h"
 #include "xl.h"
 #include "mc_migration_helper.h"
+#include "../config/para-config.h"
 
 /* 
  * Roger 
@@ -2613,7 +2614,6 @@ static void migrate_domain(const char *domain_spec, char *rune,
 
 	/* TEST rune cat */
 	hprintf("rune is ---- %s\n", rune);
-	//return;
 
     save_domain_core_begin(domain_spec, override_config_file,
                            &config_data, &config_len);
@@ -3103,9 +3103,10 @@ int main_migrate(int argc, char **argv)
     const char *ssh_command = "ssh";
     char *rune = NULL;
     char *host;
-	char **dests = NULL; 
+	char **dests = NULL, **ports = NULL; 
     int opt, daemonize = 1, debug = 0, multi = 0;// Roger add multi
 	int dest_cnt = 0;
+	struct parallel_param *param;
 
 
     while ((opt = getopt(argc, argv, "hC:s:edm")) != -1) {
@@ -3120,7 +3121,7 @@ int main_migrate(int argc, char **argv)
             ssh_command = optarg;
             break;
         case 'e':
-            daemonize = 0;
+            daemonize = -1;
             break;
         case 'd':
             debug = 1;
@@ -3145,25 +3146,13 @@ int main_migrate(int argc, char **argv)
 	if (multi) {
 		/* argv[optind + 1] is the destination file 
 		 * The first line the master address */
-		if (parse_dest_file(argv[optind + 1], &dests, &dest_cnt) < 0) {
-			fprintf(stderr, "Cannot read destination file\n");
-			return 2;
-		}
+		param = parse_file(argv[optind + 1]); 
+		strlist_to_array(param->dest_ip_list, &dests, &ports);
 		host = dests[0]; // First is the main Address
 		slave_cnt = dest_cnt; // Store in a global variable
 	} else {
 		host = argv[optind + 1];
 	}
-
-	/* TEST */
-	/*{
-		int i;
-		hprintf("TEST destination file\n");
-		for (i = 0; i < dest_cnt; i++) {
-			hprintf("dest%d: %s\n", i, dests[i]);
-		}
-		return 2;
-	}*/
 
     if (!ssh_command[0]) {
         rune = host;
