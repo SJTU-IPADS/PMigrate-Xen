@@ -49,6 +49,7 @@ typedef struct {
 
 typedef struct {
 	char* ip;
+	char* port;
 	int id;
 } send_slave_argu_t;
 
@@ -102,9 +103,9 @@ pthread_barrier_t recv_iter_barr;
 
 
 int parse_dest_file(char* dest_file, char*** dests, int* dest_cnt); 
-int rune_add_ips(char** rune, char** dests, int dest_cnt);
-int mc_net_server(char* ip);
-int mc_net_client(char* ip);
+int rune_add_ips(char** rune, char** dests, char ***ports, int dest_cnt, int port_cnt);
+int mc_net_server(char* ip, char *port);
+int mc_net_client(char* ip, char* port);
 void init_banner(banner_t *banner, int count);
 void* send_patch(void* args);
 void* receive_patch(void* args);

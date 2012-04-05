@@ -49,11 +49,18 @@ out:
 }
 
 /* Change the Rune Command */
-int rune_add_ips(char** rune, char** dests, int dest_cnt)
+int rune_add_ips(char** rune, char** dests, char ***ports, int dest_cnt, int port_cnt)
 {
-	int i, len = BUFFER_INIT_SIZE, current;
+	int i, j, len = BUFFER_INIT_SIZE, current;
 	char *a = malloc(BUFFER_INIT_SIZE);
+	char port_cnt_str[10];
 	bzero(a, BUFFER_INIT_SIZE);
+	bzero(port_cnt_str, 10);
+
+	/* Append port number */
+	sprintf(port_cnt_str, "%d", port_cnt);
+	a = strcat(a, " ");
+	a = strcat(a, port_cnt_str);
 
 	for (i = 0; i < dest_cnt; i++) {
 		if ((current = strlen(dests[i]) + strlen(a) + 1) > len){
@@ -62,6 +69,10 @@ int rune_add_ips(char** rune, char** dests, int dest_cnt)
 		}
 		a = strcat(a, " ");
 		a = strcat(a, dests[i]);
+		for (j = 0; j < port_cnt; j++) {
+			a = strcat(a, " ");
+			a = strcat(a, ports[i][j]);
+		}
 	}
 
 	asprintf(rune, "%s %s", *rune, a);
@@ -69,7 +80,7 @@ int rune_add_ips(char** rune, char** dests, int dest_cnt)
 }
 
 /* Network Socket Connection */
-int mc_net_server(char* ip) 
+int mc_net_server(char *ip, char *port) 
 {
 	int sock, connect, addr_len;
 	struct sockaddr_in server_addr,client_addr;
@@ -85,7 +96,7 @@ int mc_net_server(char* ip)
 		return -1;
 	}
 	server_addr.sin_family = AF_INET;
-	server_addr.sin_port = htons(DEFAULT_PORT);
+	server_addr.sin_port = htons(atoi(port));
 	server_addr.sin_addr.s_addr = *((unsigned long *) host->h_addr_list[0]);
 	bzero(&(server_addr.sin_zero),8);
 
@@ -110,7 +121,7 @@ int mc_net_server(char* ip)
 	return connect;
 }
 
-int mc_net_client(char* ip)
+int mc_net_client(char *ip, char *port)
 {
 	struct hostent *host;
 	struct sockaddr_in server_addr;  
@@ -126,7 +137,7 @@ int mc_net_client(char* ip)
 	}
 
 	server_addr.sin_family = AF_INET;     
-	server_addr.sin_port = htons(DEFAULT_PORT);   
+	server_addr.sin_port = htons(atoi(port));   
 	server_addr.sin_addr = *((struct in_addr *)host->h_addr);
 	bzero(&(server_addr.sin_zero),8);
 

@@ -1026,6 +1026,7 @@ time_between(struct timeval begin, struct timeval end)
 void* send_patch(void* args)
 {
 	char* ip = ((send_slave_argu_t*) args)->ip;
+	char* port = ((send_slave_argu_t*) args)->port;
 	int id = ((send_slave_argu_t*) args)->id;
 	int conn;
 
@@ -1058,7 +1059,7 @@ void* send_patch(void* args)
 
 	free(args);
 	hprintf("Slave start to connect\n");
-	if ((conn = mc_net_client(ip)) < 0) {
+	if ((conn = mc_net_client(ip, port)) < 0) {
 		exit(-1);
 	}
 

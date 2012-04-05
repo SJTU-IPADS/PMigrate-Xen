@@ -1378,7 +1378,9 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
 void* receive_patch(void* args)
 {
 	int conn, pagecount;
-	char* ip = (char*) args;
+	send_slave_argu_t *argu = (send_slave_argu_t*)args;
+	char* ip = argu->ip;
+	char* port = argu->port;
     pagebuf_t* pagebuf;
 
 	/* Init SSL */
@@ -1393,7 +1395,7 @@ void* receive_patch(void* args)
 	/* End SSL */
 
 	hprintf("Slave start to connect\n");
-	if ((conn = mc_net_server(ip)) < 0) {
+	if ((conn = mc_net_server(ip, port)) < 0) {
 		fprintf(stderr, "Net Server Error\n");
 		exit(-1);
 	}

@@ -2589,7 +2589,8 @@ static void migration_child_report(pid_t migration_child, int recv_fd) {
 static void migrate_domain(const char *domain_spec, char *rune,
                            const char *override_config_file, 
 						   /* Additional Parameter */
-						   char**dests, int dest_cnt)
+						   char **dests, char ***ports,
+						   int dest_cnt, struct parallel_param *param)
 {
     pid_t child = -1;
     int rc;
@@ -2609,7 +2610,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
 	if ( dests ) {
 		multi = 1;
 		/* Add more ips to the rune */
-		rune_add_ips(&rune, dests, dest_cnt);
+		rune_add_ips(&rune, dests, ports, dest_cnt, param->num_slaves / param->num_ips);
 	}
 
 	/* TEST rune cat */
@@ -2661,15 +2662,18 @@ static void migrate_domain(const char *domain_spec, char *rune,
 
 	/* Create Slave to Connet */
 	{
-		int i;
+		int i, j;
 		pids = (pthread_t*) malloc(sizeof(pthread_t) * dest_cnt);
 
 		init_banner(&sender_iter_banner, dest_cnt + 1);
 		for (i = 0; i < dest_cnt; i++) {
-			send_slave_argu_t *argu = malloc(sizeof(send_slave_argu_t));
-			argu->ip = dests[i];
-			argu->id = i;
-			pthread_create(pids + i, NULL, &send_patch, argu);
+			for (j = 0; j < param->num_slaves / param->num_ips; j++) {
+				send_slave_argu_t *argu = malloc(sizeof(send_slave_argu_t));
+				argu->ip = dests[i];
+				argu->port = ports[i][j];
+				argu->id = i;
+				pthread_create(pids + i, NULL, &send_patch, argu);
+			}
 		}
 
 		/* Init CPU Affnity 
@@ -2825,7 +2829,8 @@ static void core_dump_domain(const char *domain_spec, const char *filename)
 /* Roger */
 static void migrate_receive(int debug, int daemonize,
 		/* Additional argument for Multi */
-		char** ips, int ip_cnt)
+		char** ips, char ***ports,
+		int ip_cnt, int port_cnt)
 {
     int rc, rc2;
     char rc_buf;
@@ -2836,7 +2841,7 @@ static void migrate_receive(int debug, int daemonize,
 
 	signal(SIGSEGV, handler);
 	if (multi) {
-		int i;
+		int i, j;
 		init_banner(&receive_ready_banner, 0); // Init Ready Banner
 		recv_pagebuf_head = (struct list_item*)malloc(sizeof(struct list_item));
 		init_list_head(recv_pagebuf_head);
@@ -2848,7 +2853,12 @@ static void migrate_receive(int debug, int daemonize,
 		pids = (pthread_t*) malloc(sizeof(pthread_t) * ip_cnt);
 		fprintf(stderr, "ip_cnt is %d\n", ip_cnt);
 		for (i = 0; i < ip_cnt; i++){
-			pthread_create(pids + i, NULL, &receive_patch, ips[i]);
+			for (j = 0; j < port_cnt; j++) {
+				send_slave_argu_t *argu = malloc(sizeof(send_slave_argu_t));
+				argu->ip = ips[i];
+				argu->port = ports[i][j];
+				pthread_create(pids + j * i + j, NULL, &receive_patch, argu);
+			}
 		}
 	}
 
@@ -3013,8 +3023,10 @@ int main_restore(int argc, char **argv)
 int main_migrate_receive(int argc, char **argv)
 {
     int debug = 0, daemonize = 1;
-    int opt, i, multi = 0;
-	char ** ips = NULL;
+    int opt, i, j, multi = 0;
+	int port_num = 0, ip_num = 0;
+	char **ips = NULL;
+	char ***ports = NULL;
 
     while ((opt = getopt(argc, argv, "hed")) != -1) {
         switch (opt) {
@@ -3040,24 +3052,38 @@ int main_migrate_receive(int argc, char **argv)
         return 2;
     }*/
 	if (argc - optind != 0) {
+		port_num = atoi(argv[optind]);
+		ip_num = (argc - optind - 1) / (1 + port_num);
 		multi = 1;
-		ips = (char**) malloc(sizeof(char*) * (argc - optind));
-		for (i = optind; (argc - i) > 0; i++) {
-			char *buf = (char*)malloc(strlen(argv[i]));
-			strcpy(buf, argv[i]);
-			ips[i - optind] = buf;
+		ips = (char**) malloc(sizeof(char*) * ip_num);
+		ports = (char***) malloc(sizeof(char**) * ip_num);
+		for (i = optind + 1; (argc - i) > 0; i += 1 + port_num) {
+			int which_ip = (i - optind - 1) / (1 + port_num);
+			ips[which_ip] = (char*)malloc(strlen(argv[i]));
+			strcpy(ips[which_ip], argv[i]);
+			ports[which_ip] = (char **)malloc(sizeof(char*) * port_num);
+			for (j = i; j < (i + port_num); j++) {
+				int which_port = j -i;
+				ports[which_ip][which_port] = (char *)malloc(strlen(argv[j]));
+				strcpy(ports[which_ip][which_port], argv[j]);
+			}
 		}
 	}
 
-	/* Test IPs read */
-	for (i = 0; i < argc - optind; i++) {
+	/* Test IPs and Ports read */
+	for (i = 0; i < ip_num; i++) {
 		fprintf(stderr, "ip%d: %s\n", i, ips[i]);
+		fprintf(stderr, "port:");
+		for (j = 0; j < port_num; j++) {
+			fprintf(stderr, "\t%s", ports[i][j]);
+		}
+		fprintf(stderr, "\n");
 	}
 
 	recv_slave_cnt = argc - optind;
 	hprintf("recv_slave_cnt = %d\n", recv_slave_cnt);
 
-    migrate_receive(debug, daemonize, ips, argc - optind);
+    migrate_receive(debug, daemonize, ips, ports, ip_num, port_num);
     return 0;
 }
 
@@ -3103,10 +3129,10 @@ int main_migrate(int argc, char **argv)
     const char *ssh_command = "ssh";
     char *rune = NULL;
     char *host;
-	char **dests = NULL, **ports = NULL; 
+	char **dests = NULL, ***ports = NULL; 
     int opt, daemonize = 1, debug = 0, multi = 0;// Roger add multi
 	int dest_cnt = 0;
-	struct parallel_param *param;
+	struct parallel_param *param = NULL;
 
 
     while ((opt = getopt(argc, argv, "hC:s:edm")) != -1) {
@@ -3147,7 +3173,13 @@ int main_migrate(int argc, char **argv)
 		/* argv[optind + 1] is the destination file 
 		 * The first line the master address */
 		param = parse_file(argv[optind + 1]); 
-		strlist_to_array(param->dest_ip_list, &dests, &ports);
+
+		if ((param->num_slaves % param->num_ips) != 0) {
+			fprintf(stderr, "Ip number must devided by ip number\n");
+			return -1;
+		}
+		strlist_to_array(param->dest_ip_list, &dests, 
+				&ports, param->num_slaves / param->num_ips);
 		host = dests[0]; // First is the main Address
 		dest_cnt = param->num_ips;
 		slave_cnt = dest_cnt; // Store in a global variable
@@ -3165,7 +3197,7 @@ int main_migrate(int argc, char **argv)
             return 1;
     }
 
-    migrate_domain(p, rune, config_filename, dests, dest_cnt);
+    migrate_domain(p, rune, config_filename, dests, ports, dest_cnt, param);
     return 0;
 }
 

@@ -28,5 +28,6 @@ struct parallel_param {
 
 extern struct parallel_param *parse_file(char *file);
 extern int reveal_param(struct parallel_param *param);
-extern void strlist_to_array(struct ip_list *list, char ***dest, char ***port);
+extern void strlist_to_array(struct ip_list *list, char ***dest, 
+		char ****port, int port_cnt);
 #endif
