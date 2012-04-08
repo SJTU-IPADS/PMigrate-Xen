@@ -2614,7 +2614,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
 	}
 
 	/* TEST rune cat */
-	hprintf("rune is ---- %s\n", rune);
+	fprintf(stderr, "rune is ---- %s\n", rune);
 
     save_domain_core_begin(domain_spec, override_config_file,
                            &config_data, &config_len);
@@ -3062,8 +3062,8 @@ int main_migrate_receive(int argc, char **argv)
 			ips[which_ip] = (char*)malloc(strlen(argv[i]));
 			strcpy(ips[which_ip], argv[i]);
 			ports[which_ip] = (char **)malloc(sizeof(char*) * port_num);
-			for (j = i; j < (i + port_num); j++) {
-				int which_port = j -i;
+			for (j = i + 1; j < (i + port_num + 1); j++) {
+				int which_port = j - i - 1;
 				ports[which_ip][which_port] = (char *)malloc(strlen(argv[j]));
 				strcpy(ports[which_ip][which_port], argv[j]);
 			}
