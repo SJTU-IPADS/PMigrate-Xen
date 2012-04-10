@@ -55,6 +55,7 @@
     if (mc_migrate_hint == 1) fprintf(stderr, _f, ## _a)
 #define ffprintf(_file, _f, _a...) \
 	( fprintf(_file, _f, ## _a), fflush(_file) )
+extern int slave_cnt;
 
 #if 1
 #define DPRINTF(_f, _a...) syslog( LOG_DEBUG, "[MC]" __FILE__ ":%d: " _f , __LINE__, ## _a )
@@ -2590,7 +2591,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
                            const char *override_config_file, 
 						   /* Additional Parameter */
 						   char **dests, char ***ports,
-						   int dest_cnt, struct parallel_param *param)
+						   struct parallel_param *param)
 {
     pid_t child = -1;
     int rc;
@@ -2605,8 +2606,9 @@ static void migrate_domain(const char *domain_spec, char *rune,
 
 	/* Roger, Multi Flag */
 	int multi = 0;
+	int dest_cnt = param->num_ips;
+	int port_cnt = param->num_slaves / param->num_ips;
 	pthread_t *pids = NULL;
-	cpu_set_t cpu_set;
 	if ( dests ) {
 		multi = 1;
 		/* Add more ips to the rune */
@@ -2663,21 +2665,22 @@ static void migrate_domain(const char *domain_spec, char *rune,
 	/* Create Slave to Connet */
 	{
 		int i, j;
-		pids = (pthread_t*) malloc(sizeof(pthread_t) * dest_cnt);
+		pids = (pthread_t*) malloc(sizeof(pthread_t) * slave_cnt);
 
-		init_banner(&sender_iter_banner, dest_cnt + 1);
+		init_banner(&sender_iter_banner, slave_cnt + 1); // Slave + Master
 		for (i = 0; i < dest_cnt; i++) {
-			for (j = 0; j < param->num_slaves / param->num_ips; j++) {
+			for (j = 0; j < port_cnt; j++) {
 				send_slave_argu_t *argu = malloc(sizeof(send_slave_argu_t));
 				argu->ip = dests[i];
 				argu->port = ports[i][j];
-				argu->id = i;
+				argu->id = i * port_cnt + j;
 				pthread_create(pids + i, NULL, &send_patch, argu);
 			}
 		}
 
 		/* Init CPU Affnity 
 		 * Slave 1 2 3 4, Master Others */
+		/*
 		for (i = 0; i <dest_cnt; i++) {
 			CPU_ZERO(&cpu_set);
 			CPU_SET(i + 1, &cpu_set);
@@ -2690,6 +2693,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
 				CPU_SET(i, &cpu_set);
 		}
 		pthread_setaffinity_np(pthread_self(), sizeof(cpu_set), &cpu_set);
+		*/
 	}
 	
     if (rc) {
@@ -3120,7 +3124,6 @@ int main_save(int argc, char **argv)
     return 0;
 }
 
-extern int slave_cnt;
 
 int main_migrate(int argc, char **argv)
 {
@@ -3131,7 +3134,6 @@ int main_migrate(int argc, char **argv)
     char *host;
 	char **dests = NULL, ***ports = NULL; 
     int opt, daemonize = 1, debug = 0, multi = 0;// Roger add multi
-	int dest_cnt = 0;
 	struct parallel_param *param = NULL;
 
 
@@ -3181,8 +3183,7 @@ int main_migrate(int argc, char **argv)
 		strlist_to_array(param->dest_ip_list, &dests, 
 				&ports, param->num_slaves / param->num_ips);
 		host = dests[0]; // First is the main Address
-		dest_cnt = param->num_ips;
-		slave_cnt = dest_cnt; // Store in a global variable
+		slave_cnt = param->num_slaves; // Store in a global variable
 	} else {
 		host = argv[optind + 1];
 	}
@@ -3197,7 +3198,7 @@ int main_migrate(int argc, char **argv)
             return 1;
     }
 
-    migrate_domain(p, rune, config_filename, dests, ports, dest_cnt, param);
+    migrate_domain(p, rune, config_filename, dests, ports, param);
     return 0;
 }
 
