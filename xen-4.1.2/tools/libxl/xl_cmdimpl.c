@@ -45,6 +45,7 @@
 #include "xl.h"
 #include "mc_migration_helper.h"
 #include "../config/para-config.h"
+#include "qos.h"
 
 /* 
  * Roger 
@@ -3050,11 +3051,7 @@ int main_migrate_receive(int argc, char **argv)
         }
     }
 
-	/* As Roger add more args, Skip it */
-    /* if (argc-optind != 0) {
-        help("migrate-receive");
-        return 2;
-    }*/
+	/* Parsing Ips and Ports */
 	if (argc - optind != 0) {
 		port_num = atoi(argv[optind]);
 		ip_num = (argc - optind - 1) / (1 + port_num);
@@ -3186,6 +3183,25 @@ int main_migrate(int argc, char **argv)
 		slave_cnt = param->num_slaves; // Store in a global variable
 	} else {
 		host = argv[optind + 1];
+	}
+
+	/* 
+    * Qos 
+    * */
+	if (param != NULL) {
+		pthread_t pid;
+		char **nics;
+		int nic_num;
+		nic_list_t *n = param->nic_list;
+		struct qos_arg *arg = malloc(sizeof(struct qos_arg)); 
+
+		niclist_to_array(n, &nics, &nic_num);
+
+		arg->nic = nics;
+		arg->nic_num = nic_num;
+		if (param->is_qos) {
+			pthread_create(&pid, NULL, qos, arg);
+		}
 	}
 
     if (!ssh_command[0]) {

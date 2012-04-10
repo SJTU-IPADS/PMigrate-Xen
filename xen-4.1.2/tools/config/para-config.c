@@ -15,6 +15,8 @@ static void init_param(struct parallel_param *param) {
     param->max_iter = DEFAULT_MAX_ITER;
     param->max_factor = DEFAULT_MAX_FACTOR;
     param->max_downtime = DEFAULT_MAX_DOWNTIME;
+	param->is_qos = 0;
+	param->nic_list = NULL;
 }
 
 /* Get Number from List */
@@ -51,18 +53,39 @@ static int get_multi_ip(char *name, cfg_list *list, struct ip_list **ip, char *e
 	return 0;
 }
 
+static int get_multi_nic(char *name, cfg_list *list, nic_list_t **nics, char *error) {
+	str_list *s_list = NULL;
+	if ( (s_list = get_str_list(name, list)) == NULL ) {
+		perror(error);
+		return -1;
+	} else {
+		for (;s_list != NULL; s_list = s_list->next) {
+			nic_list_t *n = (struct ip_list*) calloc(sizeof(struct ip_list), 1); 
+			n->host_port = s_list->string;
+			n->len = strlen(s_list->string);
+			if (!(*nics)) {
+				*nics = n;
+			} else {
+				n->next = (*nics)->next;
+				(*nics)->next = n;
+			}
+		}
+	}
+	return 0;
+}
+
 /* Parse Configure File Main Function */
 struct parallel_param *parse_file(char *file) {
-    struct parallel_param *para_config;
+	struct parallel_param *para_config;
 	cfg_list *list = NULL;
 
 	init_config();
 	read_cfg_file(file, &list);
 
-    para_config = (struct parallel_param *)malloc(sizeof(struct parallel_param));
+	para_config = (struct parallel_param *)malloc(sizeof(struct parallel_param));
 	init_param(para_config);
 
-    //SSL type
+	//SSL type
 	if (get_one_num("SSL_type", list, &para_config->SSL_type, "SSL_type error") < 0)
 		goto error;
 
@@ -73,12 +96,12 @@ struct parallel_param *parse_file(char *file) {
 	// Dest IP
 	if (get_multi_ip("d_ip", list, &para_config->dest_ip_list, "Dest ip error") < 0)
 		goto error;
-	
+
 	// Number Ips 
 	if (get_one_num("ip_num", list, &para_config->num_ips, "ip_num error") < 0)
 		goto error;
-	
-	
+
+
 	// Number Slaves
 	if (get_one_num("slave_num", list, &para_config->num_slaves, "slave_num error") < 0)
 		goto error;
@@ -86,16 +109,24 @@ struct parallel_param *parse_file(char *file) {
 	// Max Iteration
 	if (get_one_num("max_iter", list, &para_config->max_iter, "max_iter error") < 0)
 		goto error;
-	
+
 	// Max Factor
 	if (get_one_num("max_factor", list, &para_config->max_factor, "max_factor error") < 0)
 		goto error;
-	
+
 	// Max Downtime
 	if (get_one_num("max_downtime", list, &para_config->max_downtime, "max_downtime error") < 0)
 		goto error;
 
-    return para_config;
+	// Is QOS ?
+	if (get_one_num("is_qos", list, &para_config->is_qos, "qos error") < 0)
+		goto error;
+
+	// NICs
+	if (get_multi_nic("nics", list, &para_config->nic_list, "nic error") < 0)
+		goto error;
+
+	return para_config;
 error:
 	free(para_config);
 	return NULL;
@@ -139,4 +170,17 @@ void strlist_to_array(struct ip_list *list, char ***dest, char ****port, int por
 		}
 	}    
 	return;    
+}
+
+void niclist_to_array(nic_list_t *list, char ***dest, int* num) {
+	int i = 0;    
+	nic_list_t *l = NULL;    
+	for (l = list; l != NULL; l = l->next) {    
+		i++;    
+	}    
+	*num = i;
+	*dest = (char **) malloc(sizeof(char *) * i);    
+	for (i = 0, l = list; l != NULL; i++, l = l->next) {    
+		(*dest)[i] = l->host_port;
+	}    
 }

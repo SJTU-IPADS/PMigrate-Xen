@@ -7,6 +7,8 @@ struct ip_list {
     int len;
 };
 
+typedef struct ip_list nic_list_t;
+
 #define SSL_NO 0
 #define SSL_WEAK 1
 #define SSL_STRONG 2
@@ -24,10 +26,13 @@ struct parallel_param {
     int max_iter;
     int max_factor;
 	int max_downtime;
+	int is_qos;
+	nic_list_t *nic_list;
 };
 
 extern struct parallel_param *parse_file(char *file);
 extern int reveal_param(struct parallel_param *param);
 extern void strlist_to_array(struct ip_list *list, char ***dest, 
 		char ****port, int port_cnt);
+extern void niclist_to_array(nic_list_t *list, char ***dest, int *num);
 #endif
