@@ -2612,7 +2612,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
 	if ( dests ) {
 		multi = 1;
 		/* Add more ips to the rune */
-		rune_add_ips(&rune, dests, ports, dest_cnt, param->num_slaves / param->num_ips);
+		rune_add_ips(&rune, dests, ports, dest_cnt, port_cnt);
 	}
 
 	/* TEST rune cat */
@@ -3084,7 +3084,7 @@ int main_migrate_receive(int argc, char **argv)
 		fprintf(stderr, "\n");
 	}
 
-	recv_slave_cnt = argc - optind;
+	recv_slave_cnt = ip_num * port_num;
 	hprintf("recv_slave_cnt = %d\n", recv_slave_cnt);
 
     migrate_receive(debug, daemonize, ips, ports, ip_num, port_num);
