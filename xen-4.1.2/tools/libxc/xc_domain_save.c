@@ -1661,7 +1661,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 #define ratewrite(fd, live, buf, len) ratewrite_buffer(xch, last_iter, &ob, (fd), (live), (buf), (len))
 
 	/* Start Qos Now */
-	qos_start_flag = START_QOS;
+	//qos_start_flag = START_QOS;
 
     /* Now write out each data page, canonicalising page tables as we go... */
 	hprintf("Before Save Loop\n");
