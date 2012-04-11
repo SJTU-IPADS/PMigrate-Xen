@@ -57,12 +57,12 @@ static inline long fetchcur(char *eth, int i)
 	int cnt;
 	char *tok;
 	while((cnt = getline(&buf, &len, fd)) > 0) {
-		tok = strtok(buf, " ");
+		tok = strtok(buf, " :");
 		fprintf(stderr, "token: %s\n", tok);
 		if(!strcmp(eth, tok)) {
 			int j;
 			for ( j = 1; j < i; j ++ ) {
-				tok = strtok(NULL, " ");
+				tok = strtok(NULL, " :");
 			}
 			free(buf);
 			goto end;
