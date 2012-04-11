@@ -1,4 +1,6 @@
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -38,16 +40,22 @@
 
 static inline long fetchcur(char *eth, int i)
 {
-	FILE *stream;
+	//FILE *stream;
 	char buf[128];
-	char ans[16];
+	//char ans[16];
 
-	memset(buf, '\0', sizeof(buf));
+	//memset(buf, '\0', sizeof(buf));
+#if 0
 	sprintf(buf, "cat /proc/net/dev | grep \"%s\" | awk {'print $%d'}", eth, i);
 	stream = popen(buf, "r");
 	fscanf(stream, "%s", ans);
 	pclose(stream);
-	return atol(ans);
+#endif
+	int fd = open("/proc/net/dev", O_RDONLY);
+	read(fd, buf, 128);
+	close(fd);
+	return 0;
+	//return atol(ans);
 }
 
 void *qos(void *arg)
@@ -77,8 +85,8 @@ void *qos(void *arg)
 		sleep(1);
 		pthread_mutex_lock(&qos_pause_mutex);
 		for (j = 0; j < nicnum; j++){
-			//recv[j] = RECV(nic[j]);
-			//send[j] = SEND(nic[j]);
+			recv[j] = RECV(nic[j]);
+			send[j] = SEND(nic[j]);
 			recv[j] = lrecv[j];
 			send[j] = lsend[j];
 			nic_speed[j] = ((send[j] - lsend[j] + recv[j] - lrecv[j]) + MB - 1)/MB;
