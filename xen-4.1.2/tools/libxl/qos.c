@@ -40,22 +40,38 @@
 
 static inline long fetchcur(char *eth, int i)
 {
-	//FILE *stream;
+	/* FILE *stream;
 	char buf[128];
-	//char ans[16];
+	char ans[16];
 
-	//memset(buf, '\0', sizeof(buf));
-#if 0
+	memset(buf, '\0', sizeof(buf));
 	sprintf(buf, "cat /proc/net/dev | grep \"%s\" | awk {'print $%d'}", eth, i);
 	stream = popen(buf, "r");
 	fscanf(stream, "%s", ans);
 	pclose(stream);
-#endif
-	int fd = open("/proc/net/dev", O_RDONLY);
-	read(fd, buf, 128);
-	close(fd);
-	return 0;
-	//return atol(ans);
+	return atol(ans);
+	*/
+	char *buf = NULL;
+	size_t len;
+	FILE *fd = fopen("/proc/net/dev", "r");
+	int cnt;
+	char *tok;
+	while((cnt = getline(&buf, &len, fd)) > 0) {
+		tok = strtok(buf, " ");
+		if(!strcmp(eth, tok)) {
+			int j;
+			for ( j = 1; j < i; j ++ ) {
+				tok = strtok(NULL, " ");
+			}
+			free(buf);
+			goto end;
+		}
+		free(buf);
+		buf = NULL;
+	}
+end:
+	fclose(fd);
+	return atol(tok);
 }
 
 void *qos(void *arg)
@@ -87,8 +103,8 @@ void *qos(void *arg)
 		for (j = 0; j < nicnum; j++){
 			recv[j] = RECV(nic[j]);
 			send[j] = SEND(nic[j]);
-			recv[j] = lrecv[j];
-			send[j] = lsend[j];
+			//recv[j] = lrecv[j];
+			//send[j] = lsend[j];
 			nic_speed[j] = ((send[j] - lsend[j] + recv[j] - lrecv[j]) + MB - 1)/MB;
 			fprintf(stderr, "%ld\t", nic_speed[j]);
 			lrecv[j] = recv[j];
