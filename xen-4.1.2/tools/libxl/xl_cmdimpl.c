@@ -3188,7 +3188,7 @@ int main_migrate(int argc, char **argv)
 	/* 
     * Qos 
     * */
-	if (param != NULL) {
+	/*if (param != NULL) {
 		pthread_t pid;
 		char **nics;
 		int nic_num;
@@ -3202,7 +3202,7 @@ int main_migrate(int argc, char **argv)
 		if (param->is_qos) {
 			pthread_create(&pid, NULL, qos, arg);
 		}
-	}
+	}*/
 
     if (!ssh_command[0]) {
         rune = host;
