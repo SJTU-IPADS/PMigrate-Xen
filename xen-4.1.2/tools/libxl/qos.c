@@ -75,6 +75,10 @@ void *qos(void *arg)
 
 	while(1){
 		sleep(1);
+	}
+
+	while(1){
+		sleep(1);
 		pthread_mutex_lock(&qos_pause_mutex);
 		for (j = 0; j < nicnum; j++){
 			recv[j] = RECV(nic[j]);
