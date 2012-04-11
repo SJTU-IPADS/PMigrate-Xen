@@ -79,6 +79,8 @@ void *qos(void *arg)
 		for (j = 0; j < nicnum; j++){
 			//recv[j] = RECV(nic[j]);
 			//send[j] = SEND(nic[j]);
+			recv[j] = lrecv[j];
+			send[j] = lsend[j];
 			nic_speed[j] = ((send[j] - lsend[j] + recv[j] - lrecv[j]) + MB - 1)/MB;
 			fprintf(stderr, "%ld\t", nic_speed[j]);
 			lrecv[j] = recv[j];
