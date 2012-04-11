@@ -10,7 +10,7 @@
 #define SEND(A) fetchcur(A, 10)
 #define MB 1048576
 
-static long fetchtotal(char *eth)
+/*static long fetchtotal(char *eth)
 {
 	long result = -1;
 	FILE *stream;
@@ -33,7 +33,7 @@ static long fetchtotal(char *eth)
 		}
 	}
 	return result;
-}
+}*/
 
 static inline long fetchcur(char *eth, int i)
 {
@@ -56,14 +56,15 @@ void *qos(void *arg)
 	char **nic = qos_arg->nic;
 	int j;
 
-	long total[NICMAX],
-		 lrecv[NICMAX],
+	//long total[NICMAX],
+	long lrecv[NICMAX],
 		 lsend[NICMAX],
 		 recv[NICMAX],
 		 send[NICMAX];
 
+	free(arg);
 	for(j = 0; j < nicnum; j++){
-		total[j] = fetchtotal(nic[j]);
+		//total[j] = fetchtotal(nic[j]);
 		lrecv[j] = RECV(nic[j]);
 		lsend[j] = SEND(nic[j]);
 	}
