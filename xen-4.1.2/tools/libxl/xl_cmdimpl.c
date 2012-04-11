@@ -3200,6 +3200,7 @@ int main_migrate(int argc, char **argv)
 		arg->nic = nics;
 		arg->nic_num = nic_num;
 		if (param->is_qos) {
+			qos_start_flag = 0;
 			pthread_create(&pid, NULL, qos, arg);
 		}
 	}

@@ -37,6 +37,7 @@
 #include "../libxl/mc_migration_helper.h"
 #include "./mc_ssl/cipher.h"
 #include "./mc_ssl/mc_ssl.h"
+#include "../libxl/qos.h"
 
 /*
 ** Default values for important tuning parameters. Can override by passing
@@ -1658,6 +1659,9 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 #undef ratewrite
 #endif
 #define ratewrite(fd, live, buf, len) ratewrite_buffer(xch, last_iter, &ob, (fd), (live), (buf), (len))
+
+	/* Start Qos Now */
+	qos_start_flag = START_QOS;
 
     /* Now write out each data page, canonicalising page tables as we go... */
 	hprintf("Before Save Loop\n");

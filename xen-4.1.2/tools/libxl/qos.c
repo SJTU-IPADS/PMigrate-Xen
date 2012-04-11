@@ -1,10 +1,11 @@
-#include "qos.h"
 #include <sys/types.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <pthread.h>
+#include "qos.h"
+#include "mc_migration_helper.h"
 
 #define RECV(A) fetchcur(A, 2)
 #define SEND(A) fetchcur(A, 10)
@@ -63,6 +64,11 @@ void *qos(void *arg)
 		 send[NICMAX];
 
 	free(arg);
+
+	while(qos_start_flag != START_QOS) {
+		usleep(SLEEP_SHORT_TIME);
+	}
+
 	for(j = 0; j < nicnum; j++){
 		//total[j] = fetchtotal(nic[j]);
 		lrecv[j] = RECV(nic[j]);
