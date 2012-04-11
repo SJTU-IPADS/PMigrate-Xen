@@ -65,18 +65,17 @@ void *qos(void *arg)
 
 	free(arg);
 
-	while(qos_start_flag != START_QOS) {
-		usleep(SLEEP_SHORT_TIME);
-	}
-
+	pthread_mutex_lock(&qos_pause_mutex);
 	for(j = 0; j < nicnum; j++){
 		//total[j] = fetchtotal(nic[j]);
 		lrecv[j] = RECV(nic[j]);
 		lsend[j] = SEND(nic[j]);
 	}
+	pthread_mutex_unlock(&qos_pause_mutex);
 
 	while(1){
 		sleep(1);
+		pthread_mutex_lock(&qos_pause_mutex);
 		for (j = 0; j < nicnum; j++){
 			recv[j] = RECV(nic[j]);
 			send[j] = SEND(nic[j]);
@@ -85,6 +84,7 @@ void *qos(void *arg)
 			lrecv[j] = recv[j];
 			lsend[j] = send[j];
 		}
+		pthread_mutex_unlock(&qos_pause_mutex);
 		fprintf(stderr, "\n");
 	}
 }

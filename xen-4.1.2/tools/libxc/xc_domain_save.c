@@ -1139,11 +1139,13 @@ void* send_patch(void* args)
 		//hprintf("region_base is %p\n", region_base);
 
 		/* Get page types */
+		pthread_mutex_lock(&qos_pause_mutex);
 		if ( xc_get_pfn_type_batch(xch, dom, batch, pfn_type) )
 		{
 			PERROR("get_pfn_type_batch failed");
 			goto out;
 		}
+		pthread_mutex_unlock(&qos_pause_mutex);
 		
 		if ( !ever_last_iter && argu->last_iter ) {
 			int flag = XC_LAST_ITER_FIRST;
@@ -1493,6 +1495,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     /* Domain is still running at this point */
     if ( live )
     {
+		pthread_mutex_lock(&qos_pause_mutex);
         /* Live suspend. Enable log-dirty mode. */
         if ( xc_shadow_control(xch, dom,
                                XEN_DOMCTL_SHADOW_OP_ENABLE_LOGDIRTY,
@@ -1515,6 +1518,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 goto out;
             }
         }
+		pthread_mutex_unlock(&qos_pause_mutex);
 
         /* Enable qemu-dm logging dirty pages to xen */
         if ( hvm && callbacks->switch_qemu_logdirty(dom, 1, callbacks->data) )
@@ -1660,9 +1664,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 #endif
 #define ratewrite(fd, live, buf, len) ratewrite_buffer(xch, last_iter, &ob, (fd), (live), (buf), (len))
 
-	/* Start Qos Now */
-	//qos_start_flag = START_QOS;
-
     /* Now write out each data page, canonicalising page tables as we go... */
 	hprintf("Before Save Loop\n");
 	gettimeofday(&except_last_time, NULL);
@@ -1699,9 +1700,11 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             {
                 /* Slightly wasteful to peek the whole array every time,
                    but this is fast enough for the moment. */
+				pthread_mutex_lock(&qos_pause_mutex);
                 frc = xc_shadow_control(
                     xch, dom, XEN_DOMCTL_SHADOW_OP_PEEK, HYPERCALL_BUFFER(to_skip),
                     dinfo->p2m_size, NULL, 0, NULL);
+				pthread_mutex_unlock(&qos_pause_mutex);
                 if ( frc != dinfo->p2m_size )
                 {
                     ERROR("Error peeking shadow bitmap");
@@ -2086,6 +2089,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
             }
 
+			pthread_mutex_lock(&qos_pause_mutex);
             if ( xc_shadow_control(xch, dom,
                                    XEN_DOMCTL_SHADOW_OP_CLEAN, HYPERCALL_BUFFER(to_send),
                                    dinfo->p2m_size, NULL, 0, &stats) != dinfo->p2m_size )
@@ -2093,6 +2097,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 PERROR("Error flushing shadow PT");
                 goto out;
             }
+			pthread_mutex_unlock(&qos_pause_mutex);
 
             sent_last_iter = sent_this_iter;
 
