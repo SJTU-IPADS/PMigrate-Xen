@@ -75,14 +75,10 @@ void *qos(void *arg)
 
 	while(1){
 		sleep(1);
-	}
-
-	while(1){
-		sleep(1);
 		pthread_mutex_lock(&qos_pause_mutex);
 		for (j = 0; j < nicnum; j++){
-			recv[j] = RECV(nic[j]);
-			send[j] = SEND(nic[j]);
+			//recv[j] = RECV(nic[j]);
+			//send[j] = SEND(nic[j]);
 			nic_speed[j] = ((send[j] - lsend[j] + recv[j] - lrecv[j]) + MB - 1)/MB;
 			fprintf(stderr, "%ld\t", nic_speed[j]);
 			lrecv[j] = recv[j];
