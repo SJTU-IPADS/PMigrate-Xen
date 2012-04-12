@@ -2847,13 +2847,13 @@ static void migrate_receive(int debug, int daemonize,
 	signal(SIGSEGV, handler);
 	if (multi) {
 		int i, j;
-		init_banner(&receive_ready_banner, 0); // Init Ready Banner
+		init_banner(&receive_ready_banner, recv_slave_cnt); // Init Ready Banner
 		recv_pagebuf_head = (struct list_item*)malloc(sizeof(struct list_item));
 		init_list_head(recv_pagebuf_head);
 		pthread_mutex_init(&recv_pagebuf_head_mutex, NULL);
 		pthread_mutex_init(&recv_finish_cnt_mutex, NULL);
 		pthread_mutex_init(&last_iteration_mutex, NULL);
-		pthread_barrier_init(&recv_iter_barr, NULL, ip_cnt);
+		pthread_barrier_init(&recv_iter_barr, NULL, recv_slave_cnt);
 		mc_last_iter = 0;
 		pids = (pthread_t*) malloc(sizeof(pthread_t) * ip_cnt);
 		fprintf(stderr, "ip_cnt is %d\n", ip_cnt);
@@ -2873,7 +2873,7 @@ static void migrate_receive(int debug, int daemonize,
 	/* Make sure every slave is ready */
 	while(1) {
 		pthread_mutex_lock(&receive_ready_banner.mutex);
-		if (receive_ready_banner.cnt == ip_cnt)
+		if (receive_ready_banner.cnt == recv_slave_cnt)
 			break;
 		pthread_mutex_unlock(&receive_ready_banner.mutex);
 	}
