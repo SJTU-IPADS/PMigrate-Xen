@@ -25,6 +25,7 @@
 
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #include "xg_private.h"
 #include "xg_save_restore.h"
@@ -1174,6 +1175,16 @@ static int pagebuf_get(xc_interface *xch, struct restore_ctx *ctx,
     return rc;
 }
 
+struct timeval recv_page_map;
+struct timeval recv_page_map_end;
+unsigned long long total_page_map = 0;
+
+static unsigned long
+time_between(struct timeval begin, struct timeval end)
+{
+	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
+}
+
 static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
                        xen_pfn_t* region_mfn, unsigned long* pfn_type, int pae_extended_cr3,
                        unsigned int hvm, struct xc_mmu* mmu,
@@ -1252,8 +1263,11 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
 
     /* Map relevant mfns */
     pfn_err = calloc(j, sizeof(*pfn_err));
+	gettimeofday(&recv_page_map, NULL);
     region_base = xc_map_foreign_bulk(
         xch, dom, PROT_WRITE, region_mfn, pfn_err, j);
+	gettimeofday(&recv_page_map_end, NULL);
+	total_page_map  += time_between(recv_page_map, recv_page_map_end);
 
     if ( region_base == NULL )
     {
@@ -1788,8 +1802,8 @@ mc_end:
         goto out;
     }
 
-	hprintf("Flushed updates\n");
     // DPRINTF("Received all pages (%d races)\n", nraces);
+	fprintf(stderr, "Received All the Papers\n");
 
     if ( !ctx->completed ) {
 
@@ -2325,6 +2339,7 @@ mc_end:
         goto out;
     }
 
+	fprintf(stderr, "Recieve Map Time %llu\n", total_page_map);
     /* HVM success! */
     rc = 0;
 
