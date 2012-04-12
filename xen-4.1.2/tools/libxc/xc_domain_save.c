@@ -1087,7 +1087,7 @@ void* send_patch(void* args)
 				outbuf_flush(xch, &ob, io_fd);
 
 				while ( (cnt = ssl_read(de_wrap, io_fd, buffer, strlen("OK"))) <= 0 ) { // * Read Mark
-					usleep(SLEEP_SHORT_TIME);
+					nanosleep(SLEEP_SHORT_TIME, NULL);
 				}
 
 				if (!strncmp(buffer, "OK", 2)) {
@@ -1103,7 +1103,7 @@ void* send_patch(void* args)
 				pthread_barrier_wait(&sender_iter_banner.barr);
 				goto out;
 			}
-			usleep(SLEEP_SHORT_TIME);
+			nanosleep(SLEEP_SHORT_TIME, NULL);
 		}
 
 		batch = argu->batch;

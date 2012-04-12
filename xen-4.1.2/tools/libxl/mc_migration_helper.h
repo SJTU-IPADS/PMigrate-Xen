@@ -9,8 +9,11 @@
 #define PAUSE while(1)
 #define MULTI_TRY 10
 
-#define SLEEP_SHORT_TIME 10000
-#define SLEEP_LONG_TIME 10000
+struct timespec shorttime;
+struct timespec longtime;
+
+#define SLEEP_SHORT_TIME &shorttime
+#define SLEEP_LONG_TIME &longtime
 
 enum {mc_migrate_debug = 0};
 enum {mc_migrate_hint = 0};

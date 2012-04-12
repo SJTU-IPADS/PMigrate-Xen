@@ -1402,7 +1402,7 @@ void* receive_patch(void* args)
 
 	hprintf("Slave connect success, ip = %s\n", ip);
 	while(mc_xch == NULL || mc_ctx == NULL || mc_dom == 0) {
-		usleep(SLEEP_SHORT_TIME);
+		nanosleep(SLEEP_SHORT_TIME, NULL);
 	}
 	hprintf("Slave Ready\n");
 
@@ -1673,7 +1673,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 				if (recv_finish_cnt < recv_slave_cnt) {
 					hprintf("recv_finish_cnt = %d\n", recv_finish_cnt);
 					pthread_mutex_unlock(&recv_finish_cnt_mutex);
-					usleep(SLEEP_LONG_TIME);
+					nanosleep(SLEEP_LONG_TIME, NULL);
 					continue;
 				} else {
 					pthread_mutex_unlock(&recv_finish_cnt_mutex);
