@@ -938,7 +938,7 @@ static int mc_ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n
     struct timeval now;
     struct timespec delay;
     long long delta;
-	int burst_budget = 50 * 1024; /* 50 k / 0.01s = 5 M/s */
+	int burst_budget = 100 * 1024; /* 50 k / 0.01s = 5 M/s */
 
     budget[id] -= n;
     if ( budget[id] < 0 )
