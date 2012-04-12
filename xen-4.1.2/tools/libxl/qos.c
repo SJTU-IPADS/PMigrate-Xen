@@ -13,7 +13,7 @@
 #define SEND(A) fetchcur(A, 10)
 #define MB 1048576
 
-static inline long fetchcur(char *eth, int i)
+static inline long long fetchcur(char *eth, int i)
 {
 	char *buf = NULL;
 	size_t len;
@@ -35,7 +35,7 @@ static inline long fetchcur(char *eth, int i)
 	}
 end:
 	fclose(fd);
-	return atol(tok);
+	return atoll(tok);
 }
 
 void *qos(void *arg)
@@ -46,7 +46,7 @@ void *qos(void *arg)
 	int j;
 
 	//long total[NICMAX],
-	long lrecv[NICMAX],
+	long long lrecv[NICMAX],
 		 lsend[NICMAX],
 		 recv[NICMAX],
 		 send[NICMAX];
