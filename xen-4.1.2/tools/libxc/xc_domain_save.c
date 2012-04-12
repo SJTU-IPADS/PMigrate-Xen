@@ -280,8 +280,6 @@ static inline int write_buffer(xc_interface *xch,
 #define MAX_MBIT_RATE    500      /* maximum transmit rate for migrate */
 #define START_MBIT_RATE  100      /* initial transmit rate for migrate */
 
-#define MAX_SLAVE		 10
-
 /* Scaling factor to convert between a rate (in Mb/s) and time (in usecs) */
 #define RATE_TO_BTU      781250
 
@@ -299,63 +297,6 @@ static inline void initialize_mbit_rate()
     mbit_rate = START_MBIT_RATE;
 	bzero(ombit_rate, sizeof(ombit_rate));
 }
-
-static int mc_ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n, int id)
-{
-    static int budget[MAX_SLAVE];
-    static int burst_time_us[MAX_SLAVE] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
-    static struct timeval last_put[MAX_SLAVE];
-    struct timeval now;
-    struct timespec delay;
-    long long delta;
-
-    if ( START_MBIT_RATE == 0 )
-        return noncached_write(io_fd, live, buf, n);
-
-    budget[id] -= n;
-    if ( budget[id] < 0 )
-    {
-        if ( mbit_rate != ombit_rate[id] ) {
-            burst_time_us[id] = RATE_TO_BTU / mbit_rate;
-            ombit_rate[id] = mbit_rate;
-            DPRINTF("rate limit: %d mbit/s burst budget %d slot time %d\n",
-                    mbit_rate, BURST_BUDGET, burst_time_us[id]);
-        }
-        if ( last_put[id].tv_sec == 0 )
-        {
-            budget[id] += BURST_BUDGET;
-            gettimeofday(&last_put[id], NULL);
-        }
-        else
-        {
-            while ( budget[id] < 0 )
-            {
-                gettimeofday(&now, NULL);
-                delta = tv_delta(&now, &last_put[id]);
-                while ( delta > burst_time_us[id] )
-                {
-                    budget[id] += BURST_BUDGET;
-                    last_put[id].tv_usec += burst_time_us[id];
-                    if ( last_put[id].tv_usec > 1000000 )
-                    {
-                        last_put[id].tv_usec -= 1000000;
-                        last_put[id].tv_sec++;
-                    }
-                    delta -= burst_time_us[id];
-                }
-                if ( budget[id] > 0 )
-                    break;
-                delay.tv_sec = 0;
-                delay.tv_nsec = 1000 * (burst_time_us[id] - delta);
-                while ( delay.tv_nsec > 0 )
-                    if ( nanosleep(&delay, &delay) == 0 )
-                        break;
-            }
-        }
-    }
-    return noncached_write(io_fd, live, buf, n);
-}
-
 
 static int ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n)
 {
@@ -418,7 +359,7 @@ static int ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n)
 #define RATE_IS_MAX() (0)
 #define ratewrite(xch, _io_fd, _live, _buf, _n) noncached_write((xch), (_io_fd), (_live), (_buf), (_n))
 #define initialize_mbit_rate()
-#define mc_ratewrite(xch, _io_fd, _live, _buf, _n, _id) noncached_write((xch), (_io_fd), (_live), (_buf), (_n))
+//#define mc_ratewrite(xch, _io_fd, _live, _buf, _n, _id) noncached_write((xch), (_io_fd), (_live), (_buf), (_n))
 
 #endif
 
@@ -440,7 +381,7 @@ static inline int mc_ratewrite_buffer(xc_interface *xch,
     if ( dobuf )
         return outbuf_hardwrite(xch, ob, fd, buf, len) ? -1 : len;
     else
-        return mc_ratewrite(xch, fd, live, buf, len, id);
+        return ratewrite(xch, fd, live, buf, len);
 }
 
 static int print_stats(xc_interface *xch, uint32_t domid, int pages_sent,
@@ -988,6 +929,61 @@ static int save_tsc_info(xc_interface *xch, uint32_t dom, int io_fd)
  * Roger 
  * Sender Slave 
  */
+#define MAX_SLAVE 100
+static int mc_ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n, int id)
+{
+    static int budget[MAX_SLAVE];
+    static int burst_time_us[MAX_SLAVE]; // Smallest Time Slice
+    static struct timeval last_put[MAX_SLAVE];
+    struct timeval now;
+    struct timespec delay;
+    long long delta;
+	int burst_budget = 50 * 1024; /* 50 k / 0.01s = 5 M/s */
+
+    budget[id] -= n;
+    if ( budget[id] < 0 )
+    {
+		/* Change burst time budget */
+
+		if (burst_time_us[id] == 0) {
+			burst_time_us[id] = 10000;  // 0.01s
+		}
+
+        if ( last_put[id].tv_sec == 0 )
+        {
+            budget[id] += burst_budget;
+            gettimeofday(&last_put[id], NULL);
+        }
+        else
+        {
+            while ( budget[id] < 0 )
+            {
+                gettimeofday(&now, NULL);
+                delta = tv_delta(&now, &last_put[id]);
+                while ( delta > burst_time_us[id] )
+                {
+                    budget[id] += burst_budget;
+                    last_put[id].tv_usec += burst_time_us[id];
+                    if ( last_put[id].tv_usec > 1000000 )
+                    {
+                        last_put[id].tv_usec -= 1000000;
+                        last_put[id].tv_sec++;
+                    }
+                    delta -= burst_time_us[id];
+                }
+                if ( budget[id] > 0 )
+                    break;
+                delay.tv_sec = 0;
+                delay.tv_nsec = 1000 * (burst_time_us[id] - delta);
+                while ( delay.tv_nsec > 0 )
+                    if ( nanosleep(&delay, &delay) == 0 )
+                        break;
+            }
+        }
+    }
+    return noncached_write(xch, io_fd, live, buf, n);
+}
+
 #define wrexact(fd, buf, len) write_exact((fd), (buf), (len))
 static int ssl_wrexact(struct ssl_wrap *ssl, int fd, void *data, size_t size)
 {
@@ -1003,12 +999,13 @@ static int ssl_wrexact(struct ssl_wrap *ssl, int fd, void *data, size_t size)
 #endif
 #define ratewrite(fd, live, buf, len) noncached_write(xch, (fd), (live), (buf), (len))
 static int ssl_ratewrite(struct ssl_wrap *ssl, xc_interface *xch, int fd, 
-		int live, void *data, size_t size) 
+		int live, void *data, size_t size, int id) 
 {
 	if ((size = ssl_encrypt(ssl, data, size)) < 0) {
 		return -1;
 	}
-	ratewrite(fd, live, ssl->ssl_buf, size);
+	//ratewrite(fd, live, ssl->ssl_buf, size);
+	mc_ratewrite(xch, fd, live, ssl->ssl_buf, size, id);
 	return size;
 }
 
@@ -1248,7 +1245,7 @@ void* send_patch(void* args)
 				{
 					if ( ssl_ratewrite(wrap, xch, io_fd, live, 
 								(char*)region_base+(PAGE_SIZE*(j-run)), 
-								PAGE_SIZE*run) != PAGE_SIZE*run ) // * Write Mark
+								PAGE_SIZE*run, id) != PAGE_SIZE*run ) // * Write Mark
 					{
 						PERROR("Error when writing to state file (4a)"
 								" (errno %d)", errno);
@@ -1279,7 +1276,7 @@ void* send_patch(void* args)
 					goto out;
 				}
 
-				if ( ssl_ratewrite(wrap, xch, io_fd, live, page, PAGE_SIZE) != PAGE_SIZE ) // * Write Mark
+				if ( ssl_ratewrite(wrap, xch, io_fd, live, page, PAGE_SIZE, id) != PAGE_SIZE ) // * Write Mark
 				{
 					PERROR("Error when writing to state file (4b)"
 							" (errno %d)", errno);
@@ -1299,7 +1296,7 @@ void* send_patch(void* args)
 			/* write out the last accumulated run of pages */
 			if ( ssl_ratewrite(wrap, xch, io_fd, live, 
 						(char*)region_base+(PAGE_SIZE*(j-run)), 
-						PAGE_SIZE*run) != PAGE_SIZE*run ) // * Write Mark
+						PAGE_SIZE*run, id) != PAGE_SIZE*run ) // * Write Mark
 			{
 				PERROR("Error when writing to state file (4c)"
 						" (errno %d)", errno);
