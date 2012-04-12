@@ -1465,6 +1465,10 @@ void* receive_patch(void* args)
 	return NULL;
 }
 
+struct timeval apply_time;
+struct timeval apply_time_end;
+unsigned long long total_apply_time;
+
 int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
                       unsigned int store_evtchn, unsigned long *store_mfn,
                       unsigned int console_evtchn, unsigned long *console_mfn,
@@ -1762,6 +1766,7 @@ mc_end:
 
         /* break pagebuf into batches */
         curbatch = 0;
+		gettimeofday(&apply_time, NULL);
         while ( curbatch < j ) {
             int brc;
 
@@ -1774,6 +1779,8 @@ mc_end:
 
             curbatch += MAX_BATCH_SIZE;
         }
+		gettimeofday(&apply_time_end, NULL);
+		total_apply_time += time_between(apply_time, apply_time_end);
 
         pagebuf.nr_physpages = pagebuf.nr_pages = 0;
 
@@ -2340,6 +2347,7 @@ mc_end:
     }
 
 	fprintf(stderr, "Recieve Map Time %llu\n", total_page_map);
+	fprintf(stderr, "Recieve Apply Page Time %llu\n", total_apply_time);
     /* HVM success! */
     rc = 0;
 
