@@ -3054,6 +3054,16 @@ int main_migrate_receive(int argc, char **argv)
 		}
 	}
 
+	/*
+	 * Init Time Structure
+	 **/
+	{
+		shorttime.tv_sec = 0;
+		shorttime.tv_nsec = 50 * 1000 * 1000;
+		longtime.tv_sec = 0;
+		longtime.tv_nsec = 50 * 1000 * 1000;
+	}
+
 	/* Test IPs and Ports read */
 	for (i = 0; i < ip_num; i++) {
 		fprintf(stderr, "ip%d: %s\n", i, ips[i]);
@@ -3166,6 +3176,16 @@ int main_migrate(int argc, char **argv)
 		slave_cnt = param->num_slaves; // Store in a global variable
 	} else {
 		host = argv[optind + 1];
+	}
+
+	/*
+	 * Init Time Structure
+	 **/
+	{
+		shorttime.tv_sec = 0;
+		shorttime.tv_nsec = 50 * 1000 * 1000;
+		longtime.tv_sec = 0;
+		longtime.tv_nsec = 50 * 1000 * 1000;
 	}
 
 	/* 
