@@ -1460,6 +1460,7 @@ void* receive_patch(void* args)
 		//hprintf("4\n");
 		pagebuf_init(pagebuf);
 		//hprintf("5\n");
+		fprintf(stderr, "Recv: Get Page\n");
 	}
 	hprintf("Slave Finish, ip = %s\n", ip);
 
