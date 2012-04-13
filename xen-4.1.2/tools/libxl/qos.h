@@ -9,7 +9,7 @@ struct qos_arg {
 	int nic_num;
 };
 
-pthread_mutex_t qos_pause_mutex;
+//pthread_mutex_t qos_pause_mutex;
 
 void *qos(void *arg);
 #endif

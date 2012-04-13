@@ -3202,7 +3202,7 @@ int main_migrate(int argc, char **argv)
 
 		arg->nic = nics;
 		arg->nic_num = nic_num;
-		pthread_mutex_init(&qos_pause_mutex, NULL);
+		//pthread_mutex_init(&qos_pause_mutex, NULL);
 		if (param->is_qos) {
 			pthread_create(&pid, NULL, qos, arg);
 		}
