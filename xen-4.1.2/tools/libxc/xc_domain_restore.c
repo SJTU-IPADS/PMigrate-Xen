@@ -1433,9 +1433,10 @@ void* receive_patch(void* args)
 		} else if (pagebuf->nr_pages == 0 && pagebuf->nr_physpages == 0) { // iteration barrier 
 
 			char* return_val= "OK"; // This should be picked out
+			fprintf(stderr, "Recv: Wait at iter barr\n");
 			pthread_barrier_wait(&recv_iter_barr);
 			ssl_write(wrap, conn, return_val, strlen(return_val));
-			hprintf("Write OK Back\n");
+			fprintf(stderr, "Recv: Write OK Back\n");
 			
 			free(pagebuf);
 			pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));

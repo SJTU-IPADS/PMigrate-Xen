@@ -1083,6 +1083,7 @@ void* send_patch(void* args)
 				ssl_wrexact(wrap, io_fd, &flag, sizeof(flag)); // * Write Mark
 				outbuf_flush(xch, &ob, io_fd);
 
+				fprintf(stderr, "Send: %d Wait OK response\n", id);
 				while ( (cnt = ssl_read(de_wrap, io_fd, buffer, strlen("OK"))) <= 0 ) { // * Read Mark
 					nanosleep(SLEEP_SHORT_TIME, NULL);
 				}
@@ -1093,6 +1094,7 @@ void* send_patch(void* args)
 					hprintf("Sync failed, ip %s\n", ip);
 				}
 
+				fprintf(stderr, "Send: %d Wait At Iter Banner\n", id);
 				pthread_barrier_wait(&sender_iter_banner.barr);
 			} else if (sender_iter_banner.cnt ==  2) {
 				hprintf("Slave Meet End Barrier\n");
