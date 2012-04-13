@@ -1100,6 +1100,7 @@ void* send_patch(void* args)
 				pthread_barrier_wait(&sender_iter_banner.barr);
 				goto out;
 			}
+			fprintf(stderr, "%d Send Queue is Empty\n", id);
 			nanosleep(SLEEP_SHORT_TIME, NULL);
 		}
 
