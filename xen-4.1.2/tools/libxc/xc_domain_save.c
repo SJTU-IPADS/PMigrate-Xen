@@ -2006,7 +2006,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             sent_this_iter += batch;
 
         } /* end of this while loop for this iteration */
-		hprintf("Iteration End\n");
+		fprintf(stderr, "Send: Iteration End\n");
 
 		/* Every Iteration not skipped will pass Here */
 		sender_iter_banner.cnt = 1;
