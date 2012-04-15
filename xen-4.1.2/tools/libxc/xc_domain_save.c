@@ -1079,7 +1079,7 @@ void* send_patch(void* args)
 				int flag = XC_ITERATION_BARRIER;
 				int cnt = 0;
 				char buffer[10];
-				fprintf("Slave Meet Barrier\n");
+				fprintf(stderr, "Slave Meet Barrier\n");
 				ssl_wrexact(wrap, io_fd, &flag, sizeof(flag)); // * Write Mark
 				outbuf_flush(xch, &ob, io_fd);
 
@@ -1131,7 +1131,7 @@ void* send_patch(void* args)
 		gettimeofday(&map_page_time_end[id], NULL);
 		m_page[id] += time_between(map_page_time[id], map_page_time_end[id]);
 
-		fprintf("Send Slave: Send Data start\n");
+		fprintf(stderr, "Send Slave: Send Data start\n");
 		if ( region_base == NULL )
 		{
 			PERROR("map batch failed");
@@ -1308,7 +1308,7 @@ void* send_patch(void* args)
 				goto out;
 			}                        
 		}
-		fprintf("Send Slave: Send Data end\n");
+		fprintf(stderr, "Send Slave: Send Data end\n");
 
 		free(pfn_batch); 
 		free(pfn_err);
