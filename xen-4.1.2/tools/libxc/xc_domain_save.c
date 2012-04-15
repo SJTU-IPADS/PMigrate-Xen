@@ -1079,11 +1079,11 @@ void* send_patch(void* args)
 				int flag = XC_ITERATION_BARRIER;
 				int cnt = 0;
 				char buffer[10];
-				fprintf(stderr, "Slave Meet Barrier\n");
+				//fprintf(stderr, "Slave Meet Barrier\n");
 				ssl_wrexact(wrap, io_fd, &flag, sizeof(flag)); // * Write Mark
 				outbuf_flush(xch, &ob, io_fd);
 
-				fprintf(stderr, "Send: %d Wait OK response\n", id);
+				//fprintf(stderr, "Send: %d Wait OK response\n", id);
 				while ( (cnt = ssl_read(de_wrap, io_fd, buffer, strlen("OK"))) <= 0 ) { // * Read Mark
 					nanosleep(SLEEP_SHORT_TIME, NULL);
 				}
@@ -1094,7 +1094,7 @@ void* send_patch(void* args)
 					hprintf("Sync failed, ip %s\n", ip);
 				}
 
-				fprintf(stderr, "Send: %d Wait At Iter Banner\n", id);
+				//fprintf(stderr, "Send: %d Wait At Iter Banner\n", id);
 				pthread_barrier_wait(&sender_iter_banner.barr);
 			} else if (sender_iter_banner.cnt ==  2) {
 				hprintf("Slave Meet End Barrier\n");
@@ -1102,7 +1102,7 @@ void* send_patch(void* args)
 				pthread_barrier_wait(&sender_iter_banner.barr);
 				goto out;
 			}
-			fprintf(stderr, "%d Send Queue is Empty\n", id);
+			//fprintf(stderr, "%d Send Queue is Empty\n", id);
 			nanosleep(SLEEP_SHORT_TIME, NULL);
 		}
 
@@ -1131,7 +1131,7 @@ void* send_patch(void* args)
 		gettimeofday(&map_page_time_end[id], NULL);
 		m_page[id] += time_between(map_page_time[id], map_page_time_end[id]);
 
-		fprintf(stderr, "Send Slave: Send Data start\n");
+		//fprintf(stderr, "Send Slave: Send Data start\n");
 		if ( region_base == NULL )
 		{
 			PERROR("map batch failed");
@@ -1208,7 +1208,7 @@ void* send_patch(void* args)
 		if ( !run )
 		{
 			munmap(region_base, batch*PAGE_SIZE);
-			fprintf(stderr, "Send: No valid pages, batch = %u\n", batch);
+			//fprintf(stderr, "Send: No valid pages, batch = %u\n", batch);
 			continue; /* bail on this batch: no valid pages */
 		}
 
@@ -1309,7 +1309,7 @@ void* send_patch(void* args)
 				goto out;
 			}                        
 		}
-		fprintf(stderr, "Send Slave: Send Data end\n");
+		//fprintf(stderr, "Send Slave: Send Data end\n");
 
 		free(pfn_batch); 
 		free(pfn_err);
@@ -1699,7 +1699,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 			memset(pfn_type, 0,
 					ROUNDUP(MAX_BATCH_SIZE * sizeof(*pfn_type), PAGE_SHIFT));
 
-			fprintf(stderr, "Before shadow_control\n");
+			//fprintf(stderr, "Before shadow_control\n");
             if ( !last_iter )
             {
                 /* Slightly wasteful to peek the whole array every time,
@@ -1716,7 +1716,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 }
             }
 
-			fprintf(stderr, "Before get pfn_type\n");
+			//fprintf(stderr, "Before get pfn_type\n");
             /* load pfn_type[] with the mfn of all the pages we're doing in
                this batch. */
             for  ( batch = 0;
@@ -2011,7 +2011,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             sent_this_iter += batch;
 
         } /* end of this while loop for this iteration */
-		fprintf(stderr, "Send: Iteration End\n");
+		//fprintf(stderr, "Send: Iteration End\n");
 
 		/* Every Iteration not skipped will pass Here */
 		sender_iter_banner.cnt = 1;

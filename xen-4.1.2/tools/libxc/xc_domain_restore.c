@@ -1433,10 +1433,10 @@ void* receive_patch(void* args)
 		} else if (pagebuf->nr_pages == 0 && pagebuf->nr_physpages == 0) { // iteration barrier 
 
 			char* return_val= "OK"; // This should be picked out
-			fprintf(stderr, "Recv: Wait at iter barr\n");
+			//fprintf(stderr, "Recv: Wait at iter barr\n");
 			pthread_barrier_wait(&recv_iter_barr);
 			ssl_write(wrap, conn, return_val, strlen(return_val));
-			fprintf(stderr, "Recv: Write OK Back\n");
+			//fprintf(stderr, "Recv: Write OK Back\n");
 			
 			free(pagebuf);
 			pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
@@ -1460,7 +1460,7 @@ void* receive_patch(void* args)
 		//hprintf("4\n");
 		pagebuf_init(pagebuf);
 		//hprintf("5\n");
-		fprintf(stderr, "Recv: Get Page\n");
+		//fprintf(stderr, "Recv: Get Page\n");
 	}
 	hprintf("Slave Finish, ip = %s\n", ip);
 
@@ -1691,7 +1691,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 
 				pthread_mutex_lock(&recv_finish_cnt_mutex);
 				if (recv_finish_cnt < recv_slave_cnt) {
-					fprintf(stderr, "recv_finish_cnt = %d\n", recv_finish_cnt);
+					//fprintf(stderr, "recv_finish_cnt = %d\n", recv_finish_cnt);
 					pthread_mutex_unlock(&recv_finish_cnt_mutex);
 					nanosleep(SLEEP_LONG_TIME, NULL);
 					continue;
