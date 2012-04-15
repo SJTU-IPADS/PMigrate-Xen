@@ -1079,7 +1079,7 @@ void* send_patch(void* args)
 				int flag = XC_ITERATION_BARRIER;
 				int cnt = 0;
 				char buffer[10];
-				hprintf("Slave Meet Barrier\n");
+				fprintf("Slave Meet Barrier\n");
 				ssl_wrexact(wrap, io_fd, &flag, sizeof(flag)); // * Write Mark
 				outbuf_flush(xch, &ob, io_fd);
 
@@ -1131,6 +1131,7 @@ void* send_patch(void* args)
 		gettimeofday(&map_page_time_end[id], NULL);
 		m_page[id] += time_between(map_page_time[id], map_page_time_end[id]);
 
+		fprintf("Send Slave: Send Data start\n");
 		if ( region_base == NULL )
 		{
 			PERROR("map batch failed");
@@ -1307,6 +1308,7 @@ void* send_patch(void* args)
 				goto out;
 			}                        
 		}
+		fprintf("Send Slave: Send Data end\n");
 
 		free(pfn_batch); 
 		free(pfn_err);
@@ -1696,6 +1698,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 			memset(pfn_type, 0,
 					ROUNDUP(MAX_BATCH_SIZE * sizeof(*pfn_type), PAGE_SHIFT));
 
+			fprintf(stderr, "Before shadow_control\n");
             if ( !last_iter )
             {
                 /* Slightly wasteful to peek the whole array every time,
@@ -1712,6 +1715,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 }
             }
 
+			fprintf(stderr, "Before get pfn_type\n");
             /* load pfn_type[] with the mfn of all the pages we're doing in
                this batch. */
             for  ( batch = 0;
