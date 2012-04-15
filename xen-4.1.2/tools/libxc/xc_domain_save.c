@@ -1208,6 +1208,7 @@ void* send_patch(void* args)
 		if ( !run )
 		{
 			munmap(region_base, batch*PAGE_SIZE);
+			fprintf(stderr, "Send: No valid pages, batch = %u\n", batch);
 			continue; /* bail on this batch: no valid pages */
 		}
 
