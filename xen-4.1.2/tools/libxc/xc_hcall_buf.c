@@ -151,7 +151,8 @@ static void do_hypercall_buffer_free_pages(void *ptr, int nr_pages)
     (void) munlock(ptr, nr_pages * PAGE_SIZE);
 #endif
 
-    //free(ptr);
+	if ( ptr != local_malloc_buf )
+		free(ptr);
 }
 
 void xc__hypercall_buffer_cache_release(xc_interface *xch)
