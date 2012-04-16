@@ -32,6 +32,7 @@ xc_hypercall_buffer_t XC__HYPERCALL_BUFFER_NAME(HYPERCALL_BUFFER_NULL) = {
 /*
  * Spin Lock 
  * */
+#if 0
 typedef signed short s16;
 typedef struct {
     volatile s16 lock;
@@ -69,6 +70,7 @@ static void spin_unlock(raw_spinlock_t *l){
 			"movw $1,%0" 
 			: "=m" (l->lock) : : "memory" );
 }
+#endif
 /*
  * Spin Lock End
  * */
@@ -79,16 +81,16 @@ static void hypercall_buffer_cache_lock(xc_interface *xch)
 {
     if ( xch->flags & XC_OPENFLAG_NON_REENTRANT )
         return;
-    //pthread_mutex_lock(&hypercall_buffer_cache_mutex);
-	spin_lock(&hypercall_buffer_cache_spin);
+    pthread_mutex_lock(&hypercall_buffer_cache_mutex);
+	//spin_lock(&hypercall_buffer_cache_spin);
 }
 
 static void hypercall_buffer_cache_unlock(xc_interface *xch)
 {
     if ( xch->flags & XC_OPENFLAG_NON_REENTRANT )
         return;
-    //pthread_mutex_unlock(&hypercall_buffer_cache_mutex);
-	spin_unlock(&hypercall_buffer_cache_spin);
+    pthread_mutex_unlock(&hypercall_buffer_cache_mutex);
+	//spin_unlock(&hypercall_buffer_cache_spin);
 }
 
 static void *hypercall_buffer_cache_alloc(xc_interface *xch, int nr_pages)
