@@ -1383,6 +1383,8 @@ static void init_prof_cnt (prof_cnt_t *cnt){
 }
 #endif
 
+extern unsigned long long total_getpage_domctl;
+
 int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iters,
                    uint32_t max_factor, uint32_t flags,
                    struct save_callbacks* callbacks, int hvm)
@@ -2624,6 +2626,8 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 			break;
 		}
 	}
+
+	fprintf(stderr, "\nGetpage domctl: %llu", total_getpage_domctl);
 	fprintf(stderr, "\nTotal Send Page: %lu\n", prof_cnt.send_page_cnt);
 
     return !!rc;

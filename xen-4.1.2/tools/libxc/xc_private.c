@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <assert.h>
+#include <sys/time.h>
 
 #ifndef __MINIOS__
 #include <dlfcn.h>
@@ -366,6 +367,15 @@ void xc_report_progress_step(xc_interface *xch,
                  done, total);
 }
 
+struct timeval before_getpage_domctl;
+struct timeval after_getpage_domctl;
+unsigned long long total_getpage_domctl;
+static unsigned long
+time_between(struct timeval begin, struct timeval end)
+{
+	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
+}
+
 int xc_get_pfn_type_batch(xc_interface *xch, uint32_t dom,
                           unsigned int num, xen_pfn_t *arr)
 {
@@ -378,7 +388,10 @@ int xc_get_pfn_type_batch(xc_interface *xch, uint32_t dom,
     domctl.domain = (domid_t)dom;
     domctl.u.getpageframeinfo3.num = num;
     set_xen_guest_handle(domctl.u.getpageframeinfo3.array, arr);
+	gettimeofday(&before_getpage_domctl, NULL);
     rc = do_domctl(xch, &domctl);
+	gettimeofday(&after_getpage_domctl, NULL);
+	total_getpage_domctl += time_between(before_getpage_domctl, after_getpage_domctl);
     xc_hypercall_bounce_post(xch, arr);
     return rc;
 }
