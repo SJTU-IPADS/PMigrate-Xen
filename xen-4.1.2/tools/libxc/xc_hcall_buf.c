@@ -276,6 +276,7 @@ int xc__hypercall_bounce_pre(xc_interface *xch, xc_hypercall_buffer_t *b)
         return 0;
     }
 
+	fprintf(stderr, "b->sz = %lu", b->sz);
     p = xc__hypercall_buffer_alloc(xch, b, b->sz);
     if ( p == NULL )
         return -1;
