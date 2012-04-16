@@ -1015,6 +1015,10 @@ unsigned int map_page_t_cnt[10];
 unsigned int total_map_cnt = 0;
 unsigned long long m_page[10];
 
+struct timeval invalid_page[10];
+struct timeval invalid_page_end[10];
+unsigned long long i_page[10];
+
 static unsigned long
 time_between(struct timeval begin, struct timeval end)
 {
@@ -1124,6 +1128,8 @@ void* send_patch(void* args)
 		page = argu->page;
 		dom = argu->dom;
 
+		gettimeofday(&invalid_page[id], NULL);
+
 		map_page_t_cnt[id]++;
 		gettimeofday(&map_page_time[id], NULL);
 		region_base = xc_map_foreign_bulk(
@@ -1209,6 +1215,8 @@ void* send_patch(void* args)
 		{
 			munmap(region_base, batch*PAGE_SIZE);
 			//fprintf(stderr, "Send: No valid pages, batch = %u\n", batch);
+			gettimeofday(&invalid_page_end[id], NULL);
+			i_page[id] += time_between(invalid_page[id], invalid_page_end[id]);
 			continue; /* bail on this batch: no valid pages */
 		}
 
@@ -1434,6 +1442,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     struct domain_info_context *dinfo = &ctx->dinfo;
 
     int completed = 0;
+	unsigned long long i_page_total = 0;
 
 	prof_cnt_t prof_cnt;
 	init_prof_cnt(&prof_cnt);
@@ -1442,6 +1451,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 	hprintf("Enter Domain Save\n");
 	bzero(m_page, sizeof(unsigned long long) * 10);
 	bzero(map_page_t_cnt, sizeof(unsigned int) * 10);
+	bzero(i_page, sizeof(unsigned long long) * 10);
 
     if ( hvm && !callbacks->switch_qemu_logdirty )
     {
@@ -2569,6 +2579,19 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 		}
 	}
 	fprintf(stderr, "\nTotal Map Count: %u\n", total_map_cnt);
+
+	fprintf(stderr, "\nInvalid Page Time: ");
+	for (i = 0; ; i++) {
+		if (i_page[i] != 0) {
+			fprintf(stderr, "%llu\t", i_page[i]);
+			i_page_total += i_page[i];
+		}
+		else {
+			break;
+		}
+	}
+	fprintf(stderr, "\nTotal Invalide Page: %llu\n", i_page_total);
+
 	fprintf(stderr, "\nTotal Send Page: %lu\n", prof_cnt.send_page_cnt);
 
     return !!rc;
