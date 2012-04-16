@@ -145,6 +145,7 @@ static int hypercall_buffer_cache_free(xc_interface *xch, void *p, int nr_pages)
     return rc;
 }
 
+__thread char *local_malloc_buf;
 static void do_hypercall_buffer_free_pages(void *ptr, int nr_pages)
 {
 #ifndef __sun__
@@ -193,7 +194,6 @@ time_between(struct timeval begin, struct timeval end)
 	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
 }
 
-__thread char *local_malloc_buf;
 int is_migrate = 0;
 
 void *xc__hypercall_buffer_alloc_pages(xc_interface *xch, xc_hypercall_buffer_t *b, int nr_pages)
