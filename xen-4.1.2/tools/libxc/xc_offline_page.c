@@ -298,7 +298,7 @@ static int init_mem_info(xc_interface *xch, int domid,
     {
         int count = ((dinfo->p2m_size - i ) > 1024 ) ? 1024: (dinfo->p2m_size - i);
         if ( ( rc = xc_get_pfn_type_batch(xch, domid, count,
-                  minfo->pfn_type + i)) )
+                  minfo->pfn_type + i, 9)) )
         {
             ERROR("Failed to get pfn_type %x\n", rc);
             goto failed;

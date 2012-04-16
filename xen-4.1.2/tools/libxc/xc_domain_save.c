@@ -1154,7 +1154,7 @@ void* send_patch(void* args)
 		/* Get page types */
 		//pthread_mutex_lock(&qos_pause_mutex);
 		gettimeofday(&get_pfn_type_time[id], NULL);
-		if ( xc_get_pfn_type_batch(xch, dom, batch, pfn_type) )
+		if ( xc_get_pfn_type_batch(xch, dom, batch, pfn_type, id) )
 		{
 			PERROR("get_pfn_type_batch failed");
 			goto out;
@@ -1383,7 +1383,7 @@ static void init_prof_cnt (prof_cnt_t *cnt){
 }
 #endif
 
-extern unsigned long long total_getpage_domctl;
+extern unsigned long long total_getpage_domctl[10];
 
 int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iters,
                    uint32_t max_factor, uint32_t flags,
@@ -2627,7 +2627,15 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 		}
 	}
 
-	fprintf(stderr, "\nGetpage domctl: %llu", total_getpage_domctl);
+	fprintf(stderr, "\nGetpage domctl: ");
+	for (i = 0; ; i++) {
+		if (total_getpage_domctl[i] != 0) {
+			fprintf(stderr, "%llu\t", total_getpage_domctl[i]);
+		}
+		else {
+			break;
+		}
+	}
 	fprintf(stderr, "\nTotal Send Page: %lu\n", prof_cnt.send_page_cnt);
 
     return !!rc;
