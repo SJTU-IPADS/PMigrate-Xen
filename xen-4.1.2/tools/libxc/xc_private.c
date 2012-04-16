@@ -370,6 +370,12 @@ void xc_report_progress_step(xc_interface *xch,
 struct timeval before_getpage_domctl[10];
 struct timeval after_getpage_domctl[10];
 unsigned long long total_getpage_domctl[10];
+
+struct timeval before_hyper[10];
+struct timeval after_hyper[10];
+unsigned long long total_pre[10];
+unsigned long long total_post[10];
+
 static unsigned long
 time_between(struct timeval begin, struct timeval end)
 {
@@ -383,17 +389,27 @@ int xc_get_pfn_type_batch(xc_interface *xch, uint32_t dom,
     int rc;
     DECLARE_DOMCTL;
     DECLARE_HYPERCALL_BOUNCE(arr, sizeof(*arr) * num, XC_HYPERCALL_BUFFER_BOUNCE_BOTH);
+
+	gettimeofday(&before_hyper[id], NULL);
     if ( xc_hypercall_bounce_pre(xch, arr) )
         return -1;
+	gettimeofday(&after_hyper[id], NULL);
+	total_pre[id] += time_between(before_hyper[id], after_hyper[id]);
+
     domctl.cmd = XEN_DOMCTL_getpageframeinfo3;
     domctl.domain = (domid_t)dom;
     domctl.u.getpageframeinfo3.num = num;
     set_xen_guest_handle(domctl.u.getpageframeinfo3.array, arr);
 	gettimeofday(&before_getpage_domctl[id], NULL);
     rc = do_domctl(xch, &domctl);
+
 	gettimeofday(&after_getpage_domctl[id], NULL);
 	total_getpage_domctl[id] += time_between(before_getpage_domctl[id], after_getpage_domctl[id]);
+	gettimeofday(&before_hyper[id], NULL);
+
     xc_hypercall_bounce_post(xch, arr);
+	gettimeofday(&after_hyper[id], NULL);
+	total_post[id] += time_between(before_hyper[id], after_hyper[id]);
     return rc;
 }
 

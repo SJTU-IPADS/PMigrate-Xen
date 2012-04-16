@@ -1384,6 +1384,8 @@ static void init_prof_cnt (prof_cnt_t *cnt){
 #endif
 
 extern unsigned long long total_getpage_domctl[10];
+extern unsigned long long total_pre[10];
+extern unsigned long long total_post[10];
 
 int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iters,
                    uint32_t max_factor, uint32_t flags,
@@ -2636,6 +2638,27 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 			break;
 		}
 	}
+
+	fprintf(stderr, "\nGetpage hyper pre: ");
+	for (i = 0; ; i++) {
+		if (total_pre[i] != 0) {
+			fprintf(stderr, "%llu\t", total_pre[i]);
+		}
+		else {
+			break;
+		}
+	}
+
+	fprintf(stderr, "\nGetpage hyper post: ");
+	for (i = 0; ; i++) {
+		if (total_post[i] != 0) {
+			fprintf(stderr, "%llu\t", total_post[i]);
+		}
+		else {
+			break;
+		}
+	}
+
 	fprintf(stderr, "\nTotal Send Page: %lu\n", prof_cnt.send_page_cnt);
 
     return !!rc;
