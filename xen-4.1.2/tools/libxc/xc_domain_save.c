@@ -1031,6 +1031,7 @@ time_between(struct timeval begin, struct timeval end)
 	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
 }
 
+extern __thread unsigned long long total_malloc_time;
 void* send_patch(void* args)
 {
 	char* ip = ((send_slave_argu_t*) args)->ip;
@@ -1344,6 +1345,8 @@ out:
 		int flag = XC_PARA_MIGR_END;
 		ssl_wrexact(wrap, conn, &flag, sizeof(flag));
 	}
+
+	fprintf(stderr, "Malloc Time: %llu\n", total_malloc_time);
 	return NULL;
 }
 

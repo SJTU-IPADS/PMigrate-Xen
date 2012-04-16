@@ -19,6 +19,8 @@
 #include <stdlib.h>
 #include <malloc.h>
 #include <pthread.h>
+#include <sys/time.h>
+
 
 #include "xc_private.h"
 #include "xg_private.h"
@@ -180,11 +182,23 @@ void xc__hypercall_buffer_cache_release(xc_interface *xch)
     hypercall_buffer_cache_unlock(xch);
 }
 
+__thread struct timeval malloc_time;
+__thread struct timeval malloc_time_end;
+__thread unsigned long long total_malloc_time;
+
+static unsigned long
+time_between(struct timeval begin, struct timeval end)
+{
+	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
+}
+
+
 void *xc__hypercall_buffer_alloc_pages(xc_interface *xch, xc_hypercall_buffer_t *b, int nr_pages)
 {
     size_t size = nr_pages * PAGE_SIZE;
     void *p = hypercall_buffer_cache_alloc(xch, nr_pages);
 
+	gettimeofday(&malloc_time, NULL);
     if ( !p ) {
 #if defined(_POSIX_C_SOURCE) && !defined(__sun__)
         int ret;
@@ -208,6 +222,8 @@ void *xc__hypercall_buffer_alloc_pages(xc_interface *xch, xc_hypercall_buffer_t 
         }
 #endif
     }
+	gettimeofday(&malloc_time_end, NULL);
+	total_malloc_time += time_between(malloc_time, malloc_time_end);
 
     b->hbuf = p;
 
@@ -276,7 +292,7 @@ int xc__hypercall_bounce_pre(xc_interface *xch, xc_hypercall_buffer_t *b)
         return 0;
     }
 
-	fprintf(stderr, "b->sz = %lu", b->sz);
+	//fprintf(stderr, "b->sz = %lu", b->sz);
     p = xc__hypercall_buffer_alloc(xch, b, b->sz);
     if ( p == NULL )
         return -1;
