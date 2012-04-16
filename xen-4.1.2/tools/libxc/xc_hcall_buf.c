@@ -29,20 +29,66 @@ xc_hypercall_buffer_t XC__HYPERCALL_BUFFER_NAME(HYPERCALL_BUFFER_NULL) = {
     HYPERCALL_BUFFER_INIT_NO_BOUNCE
 };
 
+/*
+ * Spin Lock 
+ * */
+typedef signed short s16;
+typedef struct {
+    volatile s16 lock;
+} raw_spinlock_t;
+#define _RAW_SPIN_LOCK_UNLOCKED /*(raw_spinlock_t)*/ { 1 }
+#define _raw_spin_is_locked(x) ((x)->lock <= 0)
+raw_spinlock_t hypercall_buffer_cache_spin = _RAW_SPIN_LOCK_UNLOCKED;
+
+static inline int _raw_spin_trylock(raw_spinlock_t *lock)
+{
+    s16 oldval;
+    asm volatile (
+        "xchgw %w0,%1"
+        :"=r" (oldval), "=m" (lock->lock)
+        :"0" (0) : "memory" );
+    return (oldval > 0);
+}
+
+static inline void rep_nop(void)
+{
+    asm volatile ( "rep;nop" : : : "memory" );
+}
+#define cpu_relax() rep_nop()
+
+static void spin_lock(raw_spinlock_t *l){
+    while ( !_raw_spin_trylock(l) )
+    {
+        while ( _raw_spin_is_locked(l) )
+            cpu_relax();
+    }
+}
+
+static void spin_unlock(raw_spinlock_t *l){
+	asm volatile (
+			"movw $1,%0" 
+			: "=m" (l->lock) : : "memory" );
+}
+/*
+ * Spin Lock End
+ * */
+
 pthread_mutex_t hypercall_buffer_cache_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static void hypercall_buffer_cache_lock(xc_interface *xch)
 {
     if ( xch->flags & XC_OPENFLAG_NON_REENTRANT )
         return;
-    pthread_mutex_lock(&hypercall_buffer_cache_mutex);
+    //pthread_mutex_lock(&hypercall_buffer_cache_mutex);
+	spin_lock(&hypercall_buffer_cache_spin);
 }
 
 static void hypercall_buffer_cache_unlock(xc_interface *xch)
 {
     if ( xch->flags & XC_OPENFLAG_NON_REENTRANT )
         return;
-    pthread_mutex_unlock(&hypercall_buffer_cache_mutex);
+    //pthread_mutex_unlock(&hypercall_buffer_cache_mutex);
+	spin_unlock(&hypercall_buffer_cache_spin);
 }
 
 static void *hypercall_buffer_cache_alloc(xc_interface *xch, int nr_pages)
