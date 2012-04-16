@@ -80,7 +80,7 @@ struct xc_interface_core {
      *
      * Protected by a global lock.
      */
-#define HYPERCALL_BUFFER_CACHE_SIZE 16
+#define HYPERCALL_BUFFER_CACHE_SIZE 4
     int hypercall_buffer_cache_nr;
     void *hypercall_buffer_cache[HYPERCALL_BUFFER_CACHE_SIZE];
 
