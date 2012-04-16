@@ -192,14 +192,15 @@ time_between(struct timeval begin, struct timeval end)
 	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
 }
 
-__thread char local_malloc_buf[3 * PAGE_SIZE] __attribute__((aligned(PAGE_SIZE)));
+__thread char *local_malloc_buf;
+int is_migrate = 0;
 
 void *xc__hypercall_buffer_alloc_pages(xc_interface *xch, xc_hypercall_buffer_t *b, int nr_pages)
 {
     size_t size = nr_pages * PAGE_SIZE;
     void *p = hypercall_buffer_cache_alloc(xch, nr_pages);
 	
-	if (!p && nr_pages <= 3) {
+	if (!p && nr_pages <= 3 && is_migrate) {
 		p = local_malloc_buf;
 	}
 

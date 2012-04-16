@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <strings.h>
 #include <sys/time.h>
+#include <malloc.h>
 
 #include "xc_private.h"
 #include "xc_dom.h"
@@ -1032,6 +1033,7 @@ time_between(struct timeval begin, struct timeval end)
 }
 
 extern __thread unsigned long long total_malloc_time;
+extern __thread char *local_malloc_buf;
 void* send_patch(void* args)
 {
 	char* ip = ((send_slave_argu_t*) args)->ip;
@@ -1067,6 +1069,7 @@ void* send_patch(void* args)
 	/* End SSL */
 
 	free(args);
+	local_malloc_buf = memalign(PAGE_SIZE, 3 * PAGE_SIZE);
 	hprintf("Slave start to connect\n");
 	if ((conn = mc_net_client(ip, port)) < 0) {
 		exit(-1);
@@ -1389,6 +1392,7 @@ static void init_prof_cnt (prof_cnt_t *cnt){
 extern unsigned long long total_getpage_domctl[10];
 extern unsigned long long total_pre[10];
 extern unsigned long long total_post[10];
+extern int is_migrate;
 
 int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iters,
                    uint32_t max_factor, uint32_t flags,
@@ -1464,6 +1468,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
 	prof_cnt_t prof_cnt;
 	init_prof_cnt(&prof_cnt);
+	is_migrate = 1;
 
 	gettimeofday(&total_migration_time, NULL);
 	hprintf("Enter Domain Save\n");
