@@ -1017,7 +1017,9 @@ unsigned long long m_page[10];
 
 struct timeval invalid_page[10];
 struct timeval invalid_page_end[10];
+struct timeval unmap_page_time[10];
 unsigned long long i_page[10];
+unsigned long long total_unmap_page[10];
 
 static unsigned long
 time_between(struct timeval begin, struct timeval end)
@@ -1213,9 +1215,11 @@ void* send_patch(void* args)
 
 		if ( !run )
 		{
+			gettimeofday(&unmap_page_time[id], NULL);
 			munmap(region_base, batch*PAGE_SIZE);
 			//fprintf(stderr, "Send: No valid pages, batch = %u\n", batch);
 			gettimeofday(&invalid_page_end[id], NULL);
+			total_unmap_page[id] += time_between(unmap_page_time[id], invalid_page_end[id]);
 			i_page[id] += time_between(invalid_page[id], invalid_page_end[id]);
 			continue; /* bail on this batch: no valid pages */
 		}
@@ -1452,6 +1456,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 	bzero(m_page, sizeof(unsigned long long) * 10);
 	bzero(map_page_t_cnt, sizeof(unsigned int) * 10);
 	bzero(i_page, sizeof(unsigned long long) * 10);
+	bzero(total_unmap_page, sizeof(unsigned long long) * 10);
 
     if ( hvm && !callbacks->switch_qemu_logdirty )
     {
@@ -2591,6 +2596,16 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 		}
 	}
 	fprintf(stderr, "\nTotal Invalide Page: %llu\n", i_page_total);
+
+	fprintf(stderr, "\nUnmap Page Time: ");
+	for (i = 0; ; i++) {
+		if (total_unmap_page[i] != 0) {
+			fprintf(stderr, "%llu\t", total_unmap_page[i]);
+		}
+		else {
+			break;
+		}
+	}
 
 	fprintf(stderr, "\nTotal Send Page: %lu\n", prof_cnt.send_page_cnt);
 
