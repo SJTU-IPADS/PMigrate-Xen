@@ -169,7 +169,7 @@ long arch_do_domctl(
             domid_t dom = domctl->domain;
             struct domain *d;
             struct page_info *page;
-            xen_pfn_t *arr;
+            xen_pfn_t arr[4096/sizeof(xen_pfn_t)];
 
             ret = -ESRCH;
             if ( unlikely((d = rcu_lock_domain_by_id(dom)) == NULL) )
@@ -190,7 +190,7 @@ long arch_do_domctl(
                 rcu_unlock_domain(d);
                 break;
             }
-            arr = page_to_virt(page);
+            //arr = page_to_virt(page);
 
             for ( n = ret = 0; n < num; )
             {
@@ -255,7 +255,7 @@ long arch_do_domctl(
                 n += k;
             }
 
-            free_domheap_page(virt_to_page(arr));
+            //free_domheap_page(virt_to_page(arr));
 
             rcu_unlock_domain(d);
             break;
