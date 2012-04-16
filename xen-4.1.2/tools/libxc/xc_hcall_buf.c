@@ -243,6 +243,8 @@ void xc__hypercall_buffer_free_pages(xc_interface *xch, xc_hypercall_buffer_t *b
     if ( b->hbuf == NULL )
         return;
 
+	if ( b->hbuf == local_malloc_buf )
+		return;
     if ( !hypercall_buffer_cache_free(xch, b->hbuf, nr_pages) )
         do_hypercall_buffer_free_pages(b->hbuf, nr_pages);
 }
