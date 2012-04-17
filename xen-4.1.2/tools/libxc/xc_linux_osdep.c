@@ -632,17 +632,17 @@ static int linux_gnttab_munmap(xc_gnttab *xcg, xc_osdep_handle h,
     }
 
     /* Next, unmap the memory. */
-	gettimeofday(&unmap_system_time, NULL);
     if ( (rc = munmap(start_address, count * getpagesize())) )
         return rc;
-	gettimeofday(&unmap_system_time_end, NULL);
-	total_unmap_system_time += time_between(unmap_system_time, unmap_system_time_end);
 
     /* Finally, unmap the driver slots used to store the grant information. */
     unmap_grant.index = get_offset.offset;
     unmap_grant.count = count;
+	gettimeofday(&unmap_system_time, NULL);
     if ( (rc = ioctl(fd, IOCTL_GNTDEV_UNMAP_GRANT_REF, &unmap_grant)) )
         return rc;
+	gettimeofday(&unmap_system_time_end, NULL);
+	total_unmap_system_time += time_between(unmap_system_time, unmap_system_time_end);
 
     return 0;
 }
