@@ -1025,6 +1025,7 @@ unsigned long long total_unmap_page[10];
 struct timeval get_pfn_type_time[10];
 struct timeval get_pfn_type_time_end[10];
 unsigned long long total_get_pfn_type[10];
+unsigned long long unmap_system[10];
 
 static unsigned long
 time_between(struct timeval begin, struct timeval end)
@@ -1034,6 +1035,7 @@ time_between(struct timeval begin, struct timeval end)
 
 extern __thread unsigned long long total_malloc_time;
 extern __thread char *local_malloc_buf;
+extern __thread unsigned long long total_unmap_system_time;
 void* send_patch(void* args)
 {
 	char* ip = ((send_slave_argu_t*) args)->ip;
@@ -1349,6 +1351,7 @@ out:
 		ssl_wrexact(wrap, conn, &flag, sizeof(flag));
 	}
 
+	unmap_system[id] = total_unmap_system_time;
 	fprintf(stderr, "Malloc Time: %llu\n", total_malloc_time);
 	return NULL;
 }
@@ -1477,6 +1480,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 	bzero(i_page, sizeof(unsigned long long) * 10);
 	bzero(total_unmap_page, sizeof(unsigned long long) * 10);
 	bzero(total_get_pfn_type, sizeof(unsigned long long) * 10);
+	bzero(unmap_system, sizeof(unsigned long long) * 10);
 
     if ( hvm && !callbacks->switch_qemu_logdirty )
     {
@@ -2661,6 +2665,16 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 	for (i = 0; ; i++) {
 		if (total_post[i] != 0) {
 			fprintf(stderr, "%llu\t", total_post[i]);
+		}
+		else {
+			break;
+		}
+	}
+
+	fprintf(stderr, "\nUnmap System Call: ");
+	for (i = 0; ; i++) {
+		if (unmap_system[i] != 0) {
+			fprintf(stderr, "%llu\t", unmap_system[i]);
 		}
 		else {
 			break;

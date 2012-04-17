@@ -592,6 +592,17 @@ static void *linux_gnttab_map_domain_grant_refs(xc_gnttab *xcg, xc_osdep_handle 
     return do_gnttab_map_grant_refs(xcg, h, count, &domid, 0, refs, prot);
 }
 
+
+__thread struct timeval unmap_system_time;
+__thread struct timeval unmap_system_time_end;
+__thread unsigned long long total_unmap_system_time;
+
+static unsigned long
+time_between(struct timeval begin, struct timeval end)
+{
+	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
+}
+
 static int linux_gnttab_munmap(xc_gnttab *xcg, xc_osdep_handle h,
                                void *start_address, uint32_t count)
 {
@@ -621,8 +632,11 @@ static int linux_gnttab_munmap(xc_gnttab *xcg, xc_osdep_handle h,
     }
 
     /* Next, unmap the memory. */
+	gettimeofday(&unmap_system_time, NULL);
     if ( (rc = munmap(start_address, count * getpagesize())) )
         return rc;
+	gettimeofday(&unmap_system_time_end, NULL);
+	total_unmap_system_time += time_between(unmap_system_time, unmap_system_time_end);
 
     /* Finally, unmap the driver slots used to store the grant information. */
     unmap_grant.index = get_offset.offset;
