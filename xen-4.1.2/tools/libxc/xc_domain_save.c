@@ -1229,6 +1229,7 @@ void* send_patch(void* args)
 		{
 			gettimeofday(&unmap_page_time[id], NULL);
 			munmap(region_base, batch*PAGE_SIZE);
+			fprintf(stderr, "munmap location %p\n", &munmap);
 			//fprintf(stderr, "Send: No valid pages, batch = %u\n", batch);
 			gettimeofday(&invalid_page_end[id], NULL);
 			total_unmap_page[id] += time_between(unmap_page_time[id], invalid_page_end[id]);
