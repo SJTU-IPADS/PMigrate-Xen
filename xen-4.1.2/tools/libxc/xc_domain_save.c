@@ -939,7 +939,7 @@ static int mc_ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n
     struct timeval now;
     struct timespec delay;
     long long delta;
-	int burst_budget = 100 * 1024; /* 50 k / 0.01s = 5 M/s */
+	int burst_budget = 100 * 1024; /* 100 k / 0.01s = 10 M/s */
 
     budget[id] -= n;
     if ( budget[id] < 0 )
@@ -1142,6 +1142,15 @@ void* send_patch(void* args)
 
 		gettimeofday(&invalid_page[id], NULL);
 
+		/* Get page types */
+		gettimeofday(&get_pfn_type_time[id], NULL);
+		if ( xc_get_pfn_type_batch(xch, dom, batch, pfn_type, id) )
+		{
+			PERROR("get_pfn_type_batch failed");
+			goto out;
+		}
+		gettimeofday(&get_pfn_type_time_end[id], NULL);
+
 		map_page_t_cnt[id]++;
 		gettimeofday(&map_page_time[id], NULL);
 		region_base = xc_map_foreign_bulk(
@@ -1157,16 +1166,6 @@ void* send_patch(void* args)
 		}
 		//hprintf("region_base is %p\n", region_base);
 
-		/* Get page types */
-		//pthread_mutex_lock(&qos_pause_mutex);
-		gettimeofday(&get_pfn_type_time[id], NULL);
-		if ( xc_get_pfn_type_batch(xch, dom, batch, pfn_type, id) )
-		{
-			PERROR("get_pfn_type_batch failed");
-			goto out;
-		}
-		gettimeofday(&get_pfn_type_time_end[id], NULL);
-		//pthread_mutex_unlock(&qos_pause_mutex);
 		
 		if ( !ever_last_iter && argu->last_iter ) {
 			int flag = XC_LAST_ITER_FIRST;
