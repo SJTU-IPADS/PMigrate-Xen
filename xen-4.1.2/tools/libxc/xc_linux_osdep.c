@@ -298,6 +298,133 @@ static void *linux_privcmd_map_foreign_bulk(xc_interface *xch, xc_osdep_handle h
     return addr;
 }
 
+static void* mc_base_addr = (void*)0x300000000000;
+static void *mc_linux_privcmd_map_foreign_bulk(xc_interface *xch, xc_osdep_handle h,
+                                            uint32_t dom, int prot,
+                                            const xen_pfn_t *arr, int *err, unsigned int num, int id)
+{
+    int fd = (int)h;
+    privcmd_mmapbatch_v2_t ioctlx;
+    void *addr = mc_base_addr + id * 512 * 512 * 4096; 
+    unsigned int i;
+    int rc;
+
+    addr = mmap(addr, (unsigned long)num << XC_PAGE_SHIFT, prot, MAP_SHARED,
+                fd, 0);
+    if ( addr == MAP_FAILED )
+    {
+        PERROR("xc_map_foreign_batch: mmap failed");
+        return NULL;
+    }
+
+    ioctlx.num = num;
+    ioctlx.dom = dom;
+    ioctlx.addr = (unsigned long)addr;
+    ioctlx.arr = arr;
+    ioctlx.err = err;
+
+    rc = ioctl(fd, IOCTL_PRIVCMD_MMAPBATCH_V2, &ioctlx);
+
+    if ( rc < 0 && errno == ENOENT )
+    {
+        for ( i = rc = 0; rc == 0 && i < num; i++ )
+        {
+            if ( err[i] != -ENOENT )
+                continue;
+
+            ioctlx.num = 1;
+            ioctlx.dom = dom;
+            ioctlx.addr = (unsigned long)addr + ((unsigned long)i<<XC_PAGE_SHIFT);
+            ioctlx.arr = arr + i;
+            ioctlx.err = err + i;
+            do {
+                usleep(100);
+                rc = ioctl(fd, IOCTL_PRIVCMD_MMAPBATCH_V2, &ioctlx);
+            } while ( rc < 0 && err[i] == -ENOENT );
+        }
+    }
+
+    if ( rc < 0 && errno == EINVAL && (int)num > 0 )
+    {
+        /*
+         * IOCTL_PRIVCMD_MMAPBATCH_V2 is not supported - fall back to
+         * IOCTL_PRIVCMD_MMAPBATCH.
+         */
+        xen_pfn_t *pfn = malloc(num * sizeof(*pfn));
+
+        if ( pfn )
+        {
+            privcmd_mmapbatch_t ioctlx;
+
+            memcpy(pfn, arr, num * sizeof(*arr));
+
+            ioctlx.num = num;
+            ioctlx.dom = dom;
+            ioctlx.addr = (unsigned long)addr;
+            ioctlx.arr = pfn;
+
+            rc = ioctl(fd, IOCTL_PRIVCMD_MMAPBATCH, &ioctlx);
+
+            rc = rc < 0 ? -errno : 0;
+
+            for ( i = 0; i < num; ++i )
+            {
+                switch ( pfn[i] ^ arr[i] )
+                {
+                case 0:
+                    err[i] = rc != -ENOENT ? rc : 0;
+                    continue;
+                default:
+                    err[i] = -EINVAL;
+                    continue;
+                case XEN_DOMCTL_PFINFO_PAGEDTAB:
+                    if ( rc != -ENOENT )
+                    {
+                        err[i] = rc ?: -EINVAL;
+                        continue;
+                    }
+                    rc = xc_map_foreign_batch_single(fd, dom, pfn + i,
+                        (unsigned long)addr + ((unsigned long)i<<XC_PAGE_SHIFT));
+                    if ( rc < 0 )
+                    {
+                        rc = -errno;
+                        break;
+                    }
+                    rc = -ENOENT;
+                    continue;
+                }
+                break;
+            }
+
+            free(pfn);
+
+            if ( rc == -ENOENT && i == num )
+                rc = 0;
+            else if ( rc )
+            {
+                errno = -rc;
+                rc = -1;
+            }
+        }
+        else
+        {
+            errno = -ENOMEM;
+            rc = -1;
+        }
+    }
+
+    if ( rc < 0 )
+    {
+        int saved_errno = errno;
+
+        PERROR("xc_map_foreign_bulk: ioctl failed");
+        (void)munmap(addr, (unsigned long)num << XC_PAGE_SHIFT);
+        errno = saved_errno;
+        return NULL;
+    }
+
+    return addr;
+}
 static void *linux_privcmd_map_foreign_range(xc_interface *xch, xc_osdep_handle h,
                                              uint32_t dom, int size, int prot,
                                              unsigned long mfn)
@@ -356,6 +483,7 @@ static struct xc_osdep_ops linux_privcmd_ops = {
         .map_foreign_bulk = &linux_privcmd_map_foreign_bulk,
         .map_foreign_range = &linux_privcmd_map_foreign_range,
         .map_foreign_ranges = &linux_privcmd_map_foreign_ranges,
+        .mc_map_foreign_bulk = &mc_linux_privcmd_map_foreign_bulk,
     },
 };
 

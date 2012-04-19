@@ -1139,6 +1139,8 @@ void *xc_map_foreign_batch(xc_interface *xch, uint32_t dom, int prot,
 void *xc_map_foreign_bulk(xc_interface *xch, uint32_t dom, int prot,
                           const xen_pfn_t *arr, int *err, unsigned int num);
 
+void *mc_xc_map_foreign_bulk(xc_interface *xch, uint32_t dom, int prot,
+                          const xen_pfn_t *arr, int *err, unsigned int num, int id);
 /**
  * Translates a virtual address in the context of a given domain and
  * vcpu returning the GFN containing the address (that is, an MFN for 

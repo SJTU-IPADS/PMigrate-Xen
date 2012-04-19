@@ -80,6 +80,13 @@ void *xc_map_foreign_bulk(xc_interface *xch, uint32_t dom, int prot,
                                                 dom, prot, arr, err, num);
 }
 
+void *mc_xc_map_foreign_bulk(xc_interface *xch, uint32_t dom, int prot,
+                          const xen_pfn_t *arr, int *err, unsigned int num, int id)
+{
+    return xch->ops->u.privcmd.mc_map_foreign_bulk(xch, xch->ops_handle,
+                                                dom, prot, arr, err, num, id);
+}
+
 /* stub for all not yet converted OSes */
 void *xc_map_foreign_bulk_compat(xc_interface *xch, xc_osdep_handle h,
                                  uint32_t dom, int prot,

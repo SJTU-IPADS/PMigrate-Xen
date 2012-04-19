@@ -85,6 +85,8 @@ struct xc_osdep_ops
             void *(*map_foreign_ranges)(xc_interface *xch, xc_osdep_handle h, uint32_t dom, size_t size, int prot,
                                         size_t chunksize, privcmd_mmap_entry_t entries[],
                                         int nentries);
+            void *(*mc_map_foreign_bulk)(xc_interface *xch, xc_osdep_handle h, uint32_t dom, int prot,
+                                      const xen_pfn_t *arr, int *err, unsigned int num, int id);
         } privcmd;
         struct {
             int (*fd)(xc_evtchn *xce, xc_osdep_handle h);
