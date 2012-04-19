@@ -152,8 +152,8 @@ static void do_hypercall_buffer_free_pages(void *ptr, int nr_pages)
     (void) munlock(ptr, nr_pages * PAGE_SIZE);
 #endif
 
-	if ( ptr != local_malloc_buf )
-		free(ptr);
+	//if ( ptr != local_malloc_buf )
+	free(ptr);
 }
 
 void xc__hypercall_buffer_cache_release(xc_interface *xch)
@@ -201,9 +201,9 @@ void *xc__hypercall_buffer_alloc_pages(xc_interface *xch, xc_hypercall_buffer_t 
     size_t size = nr_pages * PAGE_SIZE;
     void *p = hypercall_buffer_cache_alloc(xch, nr_pages);
 	
-	if (!p && nr_pages <= 3 && is_migrate) {
+	/*if (!p && nr_pages <= 3 && is_migrate) {
 		p = local_malloc_buf;
-	}
+	}*/
 
 	gettimeofday(&malloc_time, NULL);
     if ( !p ) {
@@ -243,8 +243,9 @@ void xc__hypercall_buffer_free_pages(xc_interface *xch, xc_hypercall_buffer_t *b
     if ( b->hbuf == NULL )
         return;
 
-	if ( b->hbuf == local_malloc_buf )
+	/*if ( b->hbuf == local_malloc_buf )
 		return;
+		*/
     if ( !hypercall_buffer_cache_free(xch, b->hbuf, nr_pages) )
         do_hypercall_buffer_free_pages(b->hbuf, nr_pages);
 }
