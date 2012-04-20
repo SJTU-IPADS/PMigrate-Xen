@@ -1453,14 +1453,9 @@ void* receive_patch(void* args)
 			pagebuf_init(pagebuf);
 			continue;
 		}
-		hprintf("2\n");
 		recv_pagebuf_enqueue(pagebuf);
-		//hprintf("3\n");
 		pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
-		//hprintf("4\n");
 		pagebuf_init(pagebuf);
-		//hprintf("5\n");
-		//fprintf(stderr, "Recv: Get Page\n");
 	}
 	hprintf("Slave Finish, ip = %s\n", ip);
 
