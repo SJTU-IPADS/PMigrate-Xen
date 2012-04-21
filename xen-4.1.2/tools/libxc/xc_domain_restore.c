@@ -1359,6 +1359,7 @@ void* buttom_apply_batch(void* args) {
 
 			++curpage;
 
+			printf("Debug1\n");
 			if ( pfn > dinfo->p2m_size )
 			{
 				ERROR("pfn out of range");
@@ -1369,7 +1370,6 @@ void* buttom_apply_batch(void* args) {
 
 			mfn = ctx->p2m[pfn];
 
-			printf("Debug1\n");
 			/* In verify mode, we use a copy; otherwise we work in place */
 			page = pagebuf->verify ? (void *)buf : (region_base + i*PAGE_SIZE);
 
