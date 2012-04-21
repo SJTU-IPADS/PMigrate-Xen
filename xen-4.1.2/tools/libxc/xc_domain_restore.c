@@ -1175,16 +1175,284 @@ static int pagebuf_get(xc_interface *xch, struct restore_ctx *ctx,
     return rc;
 }
 
+/* Bottom Apply Flag */
+int apply_bottom_end = 0;
+
 struct timeval recv_page_map;
 struct timeval recv_page_map_end;
 unsigned long long total_page_map = 0;
 
+#if 0
 static unsigned long
 time_between(struct timeval begin, struct timeval end)
 {
 	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
 }
+#endif
 
+static int top_apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
+		xen_pfn_t* region_mfn, unsigned long* pfn_type, int pae_extended_cr3,
+		unsigned int hvm, struct xc_mmu* mmu,
+		pagebuf_t* pagebuf, int curbatch)
+{
+    int i, j, nr_mfns;
+    /* Our mapping of the current region (batch) */
+    char *region_base;
+    /* A temporary mapping, and a copy, of one frame of guest memory. */
+    int* pfn_err = NULL;
+
+	/* To buttom argu */
+	top_to_buttom_t *argu = malloc(sizeof(top_to_buttom_t));
+
+    j = pagebuf->nr_pages - curbatch;
+    if (j > MAX_BATCH_SIZE)
+        j = MAX_BATCH_SIZE;
+
+    /* First pass for this batch: work out how much memory to alloc */
+    nr_mfns = 0; 
+    for ( i = 0; i < j; i++ )
+    {
+        unsigned long pfn, pagetype;
+        pfn      = pagebuf->pfn_types[i + curbatch] & ~XEN_DOMCTL_PFINFO_LTAB_MASK;
+        pagetype = pagebuf->pfn_types[i + curbatch] &  XEN_DOMCTL_PFINFO_LTAB_MASK;
+		hprintf("pfn = %ld\n", pfn);
+
+        if ( (pagetype != XEN_DOMCTL_PFINFO_XTAB) && 
+             (ctx->p2m[pfn] == INVALID_P2M_ENTRY) )
+        {
+            /* Have a live PFN which hasn't had an MFN allocated */
+            ctx->p2m_batch[nr_mfns++] = pfn; 
+            ctx->p2m[pfn]--;
+        }
+    } 
+
+    /* Now allocate a bunch of mfns for this batch */
+    if ( nr_mfns &&
+         (xc_domain_populate_physmap_exact(xch, dom, nr_mfns, 0,
+                                            0, ctx->p2m_batch) != 0) )
+    { 
+        ERROR("Failed to allocate memory for batch.!\n"); 
+        errno = ENOMEM;
+        return -1;
+    }
+
+    /* Second pass for this batch: update p2m[] and region_mfn[] */
+    nr_mfns = 0; 
+    for ( i = 0; i < j; i++ )
+    {
+        unsigned long pfn, pagetype;
+        pfn      = pagebuf->pfn_types[i + curbatch] & ~XEN_DOMCTL_PFINFO_LTAB_MASK;
+        pagetype = pagebuf->pfn_types[i + curbatch] &  XEN_DOMCTL_PFINFO_LTAB_MASK;
+
+        if ( pagetype == XEN_DOMCTL_PFINFO_XTAB )
+            region_mfn[i] = ~0UL; /* map will fail but we don't care */
+        else 
+        {
+            if ( ctx->p2m[pfn] == (INVALID_P2M_ENTRY-1) )
+            {
+                /* We just allocated a new mfn above; update p2m */
+                ctx->p2m[pfn] = ctx->p2m_batch[nr_mfns++]; 
+                ctx->nr_pfns++; 
+            }
+
+            /* setup region_mfn[] for batch map.
+             * For HVM guests, this interface takes PFNs, not MFNs */
+            region_mfn[i] = hvm ? pfn : ctx->p2m[pfn]; 
+        }
+    }
+
+    /* Map relevant mfns */
+    pfn_err = calloc(j, sizeof(*pfn_err));
+	//gettimeofday(&recv_page_map, NULL);
+    region_base = xc_map_foreign_bulk(
+        xch, dom, PROT_WRITE, region_mfn, pfn_err, j);
+	//gettimeofday(&recv_page_map_end, NULL);
+	//total_page_map  += time_between(recv_page_map, recv_page_map_end);
+
+    if ( region_base == NULL )
+    {
+        PERROR("map batch failed");
+        free(pfn_err);
+        return -1;
+    }
+
+	/* Enqueue */
+	argu->j = j;
+	argu->pagebuf = pagebuf;
+    argu->pfn_err = pfn_err;
+	argu->pfn_type = pfn_type;
+	argu->ctx = ctx;
+	argu->curbatch = curbatch;
+	argu->pae_extended_cr3 = pae_extended_cr3;
+	argu->region_base = region_base;
+	argu->mmu = mmu;
+	argu->xch = xch;
+	argu->dom = dom;
+	argu->hvm = hvm;
+
+	apply_enqueue(argu);
+	/* Enqueue End */
+	return 0;
+}
+
+void* buttom_apply_batch(void* args) {
+	/* Local */
+	int i, curpage;
+    unsigned long mfn, pfn, pagetype;
+	struct domain_info_context *dinfo; 
+    unsigned long *page = NULL;
+    /* used by debug verify code */
+    unsigned long buf[PAGE_SIZE/sizeof(unsigned long)];
+
+	/* Queue */
+	int j;
+	pagebuf_t *pagebuf = NULL;
+    int* pfn_err = NULL;
+	unsigned long* pfn_type;
+	struct restore_ctx *ctx;
+	int curbatch;
+	int pae_extended_cr3;
+	char *region_base;
+	struct xc_mmu* mmu;
+	xc_interface *xch;
+	uint32_t dom;
+	unsigned int hvm;
+
+	while(1){
+		top_to_buttom_t *argu;
+		/* Dequeue */
+		while (apply_dequeue(&argu) < 0) {
+			if (apply_bottom_end) goto end;
+			nanosleep(SLEEP_SHORT_TIME, NULL);
+		}
+
+		j = argu->j;
+		pagebuf = argu->pagebuf;
+		pfn_err = argu->pfn_err;
+		pfn_type = argu->pfn_type;
+		ctx = argu->ctx;
+		curbatch = argu->curbatch;
+		pae_extended_cr3 = argu->pae_extended_cr3;
+		region_base = argu->region_base;
+		mmu = argu->mmu;
+		xch = argu->xch;
+		dom = argu->dom;
+		hvm = argu->hvm;
+		dinfo = &ctx->dinfo; 
+
+		/* Dequeue End */
+
+		for ( i = 0, curpage = -1; i < j; i++ )
+		{
+			pfn      = pagebuf->pfn_types[i + curbatch] & ~XEN_DOMCTL_PFINFO_LTAB_MASK;
+			pagetype = pagebuf->pfn_types[i + curbatch] &  XEN_DOMCTL_PFINFO_LTAB_MASK;
+
+			if ( pagetype == XEN_DOMCTL_PFINFO_XTAB )
+				/* a bogus/unmapped page: skip it */
+				continue;
+
+			if (pfn_err[i])
+			{
+				ERROR("unexpected PFN mapping failure");
+				goto err_mapped;
+			}
+
+			++curpage;
+
+			if ( pfn > dinfo->p2m_size )
+			{
+				ERROR("pfn out of range");
+				goto err_mapped;
+			}
+
+			pfn_type[pfn] = pagetype;
+
+			mfn = ctx->p2m[pfn];
+
+			/* In verify mode, we use a copy; otherwise we work in place */
+			page = pagebuf->verify ? (void *)buf : (region_base + i*PAGE_SIZE);
+
+			memcpy(page, pagebuf->pages + (curpage + curbatch) * PAGE_SIZE, PAGE_SIZE);
+
+			pagetype &= XEN_DOMCTL_PFINFO_LTABTYPE_MASK;
+
+			if ( (pagetype >= XEN_DOMCTL_PFINFO_L1TAB) &&
+					(pagetype <= XEN_DOMCTL_PFINFO_L4TAB) )
+			{
+				/*
+				 ** A page table page - need to 'uncanonicalize' it, i.e.
+				 ** replace all the references to pfns with the corresponding
+				 ** mfns for the new domain.
+				 **
+				 ** On PAE we need to ensure that PGDs are in MFNs < 4G, and
+				 ** so we may need to update the p2m after the main loop.
+				 ** Hence we defer canonicalization of L1s until then.
+				 */
+				if ((ctx->pt_levels != 3) ||
+						pae_extended_cr3 ||
+						(pagetype != XEN_DOMCTL_PFINFO_L1TAB)) {
+
+					if (!uncanonicalize_pagetable(xch, dom, ctx, page)) {
+						/*
+						 ** Failing to uncanonicalize a page table can be ok
+						 ** under live migration since the pages type may have
+						 ** changed by now (and we'll get an update later).
+						 */
+						DPRINTF("PT L%ld race on pfn=%08lx mfn=%08lx\n",
+								pagetype >> 28, pfn, mfn);
+						//nraces++;
+						continue;
+					}
+				}
+			}
+			else if ( pagetype != XEN_DOMCTL_PFINFO_NOTAB )
+			{
+				ERROR("Bogus page type %lx page table is out of range: "
+						"i=%d p2m_size=%lu", pagetype, i, dinfo->p2m_size);
+				goto err_mapped;
+			}
+
+			if ( pagebuf->verify )
+			{
+				int res = memcmp(buf, (region_base + i*PAGE_SIZE), PAGE_SIZE);
+				if ( res )
+				{
+					int v;
+
+					DPRINTF("************** pfn=%lx type=%lx gotcs=%08lx "
+							"actualcs=%08lx\n", pfn, pagebuf->pfn_types[pfn],
+							csum_page(region_base + (i + curbatch)*PAGE_SIZE),
+							csum_page(buf));
+
+					for ( v = 0; v < 4; v++ )
+					{
+						unsigned long *p = (unsigned long *)
+							(region_base + i*PAGE_SIZE);
+						if ( buf[v] != p[v] )
+							DPRINTF("    %d: %08lx %08lx\n", v, buf[v], p[v]);
+					}
+				}
+			}
+
+			if ( !hvm &&
+					xc_add_mmu_update(xch, mmu,
+						(((unsigned long long)mfn) << PAGE_SHIFT)
+						| MMU_MACHPHYS_UPDATE, pfn) )
+			{
+				PERROR("failed machpys update mfn=%lx pfn=%lx", mfn, pfn);
+				goto err_mapped;
+			}
+		} /* end of 'batch' for loop */
+
+err_mapped:
+		munmap(region_base, j*PAGE_SIZE);
+		free(pfn_err);
+	}
+end:
+    return NULL;
+}
+
+#if 0
 static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
                        xen_pfn_t* region_mfn, unsigned long* pfn_type, int pae_extended_cr3,
                        unsigned int hvm, struct xc_mmu* mmu,
@@ -1386,6 +1654,18 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
 
     return rc;
 }
+#endif
+
+struct global_mc_apply_para {
+	xc_interface *xch;
+	uint32_t dom;
+	struct restore_ctx *ctx;
+    unsigned long *pfn_type;
+	int pae_extended_cr3;
+	unsigned int hvm;
+    struct xc_mmu *mmu;
+	int ready; // ready flag
+} global_mc_top_apply;
 
 /* Roger 
  * Migration server slave thread enter point */
@@ -1396,6 +1676,9 @@ void* receive_patch(void* args)
 	char* ip = argu->ip;
 	char* port = argu->port;
     pagebuf_t* pagebuf;
+    xen_pfn_t *region_mfn = NULL;
+
+	struct global_mc_apply_para *apply = &global_mc_top_apply;
 
 	/* Init SSL */
 	struct ssl_wrap *wrap = (struct ssl_wrap*)malloc(sizeof(struct ssl_wrap));
@@ -1408,6 +1691,11 @@ void* receive_patch(void* args)
 	de_wrap->cc = init_ssl_byname("aes128-cbc", "123Roger", CIPHER_DECRYPT);
 	/* End SSL */
 
+	/* apply */
+    region_mfn = malloc(ROUNDUP(MAX_BATCH_SIZE * sizeof(xen_pfn_t), PAGE_SHIFT));
+    memset(region_mfn, 0,
+           ROUNDUP(MAX_BATCH_SIZE * sizeof(xen_pfn_t), PAGE_SHIFT)); 
+
 	hprintf("Slave start to connect\n");
 	if ((conn = mc_net_server(ip, port)) < 0) {
 		fprintf(stderr, "Net Server Error\n");
@@ -1415,7 +1703,7 @@ void* receive_patch(void* args)
 	}
 
 	hprintf("Slave connect success, ip = %s\n", ip);
-	while(mc_xch == NULL || mc_ctx == NULL || mc_dom == 0) {
+	while(mc_xch == NULL || mc_ctx == NULL || mc_dom == 0 || apply->ready == 0) {
 		nanosleep(SLEEP_SHORT_TIME, NULL);
 	}
 	hprintf("Slave Ready\n");
@@ -1453,7 +1741,27 @@ void* receive_patch(void* args)
 			pagebuf_init(pagebuf);
 			continue;
 		}
-		recv_pagebuf_enqueue(pagebuf);
+
+		/* Do Apply Page Here */
+		if (pagebuf->nr_pages == 0) {
+			recv_pagebuf_enqueue(pagebuf);
+		} else {
+			int j = pagebuf->nr_pages, curbatch = 0; 
+			while ( curbatch < j ) {
+				int brc;
+				brc = top_apply_batch(apply->xch/*global*/, apply->dom/*global*/, 
+						apply->ctx/*global*/, region_mfn/*local*/, 
+						apply->pfn_type/*global share*/, apply->pae_extended_cr3/*global*/,
+						apply->hvm/*global*/, apply->mmu/*global*/, 
+						pagebuf/*local*/, curbatch/*local*/);
+				if ( brc < 0 )
+					break;
+				curbatch += MAX_BATCH_SIZE;
+			}
+			pagebuf->nr_physpages = pagebuf->nr_pages = 0;
+			pagebuf_free(pagebuf);
+		}
+
 		pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
 		pagebuf_init(pagebuf);
 	}
@@ -1466,6 +1774,7 @@ struct timeval apply_time;
 struct timeval apply_time_end;
 unsigned long long total_apply_time;
 
+
 int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
                       unsigned int store_evtchn, unsigned long *store_mfn,
                       unsigned int console_evtchn, unsigned long *console_mfn,
@@ -1477,7 +1786,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
     uint32_t vcpuextstate_size = 0;
     unsigned long mfn, pfn;
     unsigned int prev_pc;
-    int nraces = 0;
+    //int nraces = 0;
 
 	int ever_last_iter = 0;
 
@@ -1542,7 +1851,6 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
     pagebuf_init(&pagebuf);
     memset(&tailbuf, 0, sizeof(tailbuf));
     tailbuf.ishvm = hvm;
-	
 
     /* For info only */
     ctx->nr_pfns = 0;
@@ -1613,6 +1921,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
     ctx->p2m   = calloc(dinfo->p2m_size, sizeof(xen_pfn_t));
     pfn_type   = calloc(dinfo->p2m_size, sizeof(unsigned long));
 
+
     region_mfn = malloc(ROUNDUP(MAX_BATCH_SIZE * sizeof(xen_pfn_t), PAGE_SHIFT));
     ctx->p2m_batch = malloc(ROUNDUP(MAX_BATCH_SIZE * sizeof(xen_pfn_t), PAGE_SHIFT));
 
@@ -1661,12 +1970,22 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 
     n = m = 0;
 
+	/* Init Global Apply Parameter */
+	global_mc_top_apply.xch = xch;
+	global_mc_top_apply.dom = dom;
+	global_mc_top_apply.ctx = ctx;
+	global_mc_top_apply.pfn_type = pfn_type;
+	global_mc_top_apply.pae_extended_cr3 = pae_extended_cr3;
+	global_mc_top_apply.hvm = hvm;
+	global_mc_top_apply.mmu = mmu;
+	global_mc_top_apply.ready = 1;
+
  loadpages:
 	
 	hprintf("Before For Loop\n");
     for ( ; ; )
     {
-        int j, curbatch;
+        int j;
 		pagebuf_t *pagebuf_p;
 
         xc_report_progress_step(xch, n, dinfo->p2m_size);
@@ -1696,6 +2015,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 					if (recv_pagebuf_dequeue(&pagebuf_p) >= 0)
 						break;
 
+					apply_bottom_end = 1;
 					hprintf("Try VCPU INFO");
 					if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
 						ERROR("Error when reading batch\n");
@@ -1762,7 +2082,8 @@ mc_end:
         }
 
         /* break pagebuf into batches */
-        curbatch = 0;
+#if 0
+		curbatch = 0;
 		gettimeofday(&apply_time, NULL);
         while ( curbatch < j ) {
             int brc;
@@ -1794,6 +2115,7 @@ mc_end:
             m = 0;
         }
 		pagebuf_free(&pagebuf);
+#endif
     }
 
     /*

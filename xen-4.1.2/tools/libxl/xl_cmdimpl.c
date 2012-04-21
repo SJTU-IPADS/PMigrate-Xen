@@ -2833,12 +2833,16 @@ static void migrate_receive(int debug, int daemonize,
 		init_banner(&receive_ready_banner, recv_slave_cnt); // Init Ready Banner
 		recv_pagebuf_head = (struct list_item*)malloc(sizeof(struct list_item));
 		init_list_head(recv_pagebuf_head);
+		apply_queue_head = malloc(sizeof(struct list_item));
+		init_list_head(apply_queue_head);
+
 		pthread_mutex_init(&recv_pagebuf_head_mutex, NULL);
+		pthread_mutex_init(&apply_queue_mutex, NULL);
 		pthread_mutex_init(&recv_finish_cnt_mutex, NULL);
 		pthread_mutex_init(&last_iteration_mutex, NULL);
 		pthread_barrier_init(&recv_iter_barr, NULL, recv_slave_cnt);
 		mc_last_iter = 0;
-		pids = (pthread_t*) malloc(sizeof(pthread_t) * ip_cnt);
+		pids = (pthread_t*) malloc(sizeof(pthread_t) * ip_cnt * port_cnt + 1);
 		fprintf(stderr, "ip_cnt is %d\n", ip_cnt);
 		for (i = 0; i < ip_cnt; i++){
 			for (j = 0; j < port_cnt; j++) {
@@ -2848,6 +2852,7 @@ static void migrate_receive(int debug, int daemonize,
 				pthread_create(pids + j * i + j, NULL, &receive_patch, argu);
 			}
 		}
+		pthread_create(pids + ip_cnt * port_cnt, NULL, &buttom_apply_batch,NULL);
 	}
 
     signal(SIGPIPE, SIG_IGN);

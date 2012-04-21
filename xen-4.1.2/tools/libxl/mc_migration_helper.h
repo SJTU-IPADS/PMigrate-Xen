@@ -81,6 +81,21 @@ typedef struct {
     uint64_t acpi_ioport_location;
 } pagebuf_t;
 
+typedef struct {
+	int j;
+	pagebuf_t *pagebuf;
+    int* pfn_err;
+	unsigned long* pfn_type;
+	struct restore_ctx *ctx;
+	int curbatch;
+	int pae_extended_cr3;
+	char *region_base;
+	struct xc_mmu* mmu;
+	xc_interface *xch;
+	uint32_t dom;
+	unsigned int hvm;
+} top_to_buttom_t;
+
 /* Global Variable */
 // Receive Waiting for slave ready
 banner_t receive_ready_banner;
@@ -97,6 +112,10 @@ int recv_finish_cnt;
 pthread_mutex_t recv_finish_cnt_mutex;
 int recv_slave_cnt;
 
+// Apply Argu in Recv
+struct list_item *apply_queue_head;
+pthread_mutex_t apply_queue_mutex;
+
 // Last Iteration
 int mc_last_iter;
 pthread_mutex_t last_iteration_mutex;
@@ -112,9 +131,12 @@ int mc_net_client(char* ip, char* port);
 void init_banner(banner_t *banner, int count);
 void* send_patch(void* args);
 void* receive_patch(void* args);
+void* buttom_apply_batch(void* args);
 int init_list_head(struct list_item *list_head);
 int send_argu_enqueue(send_argu_t* argu);
 int send_argu_dequeue(send_argu_t **argu);
 int recv_pagebuf_enqueue(pagebuf_t *pagebuf);
 int recv_pagebuf_dequeue(pagebuf_t **pagebuf);
+int apply_enqueue(top_to_buttom_t *argu);
+int apply_dequeue(top_to_buttom_t **argu);
 #endif
