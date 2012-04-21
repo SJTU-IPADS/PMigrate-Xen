@@ -2675,7 +2675,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
 				argu->ip = dests[i];
 				argu->port = ports[i][j];
 				argu->id = i * port_cnt + j;
-				pthread_create(pids + i, NULL, &send_patch, argu);
+				pthread_create(pids + argu->id, NULL, &send_patch, argu);
 			}
 		}
 	}
@@ -2849,7 +2849,7 @@ static void migrate_receive(int debug, int daemonize,
 				send_slave_argu_t *argu = malloc(sizeof(send_slave_argu_t));
 				argu->ip = ips[i];
 				argu->port = ports[i][j];
-				pthread_create(pids + j * i + j, NULL, &receive_patch, argu);
+				pthread_create(pids + port_cnt * i + j, NULL, &receive_patch, argu);
 			}
 		}
 		pthread_create(pids + ip_cnt * port_cnt, NULL, &buttom_apply_batch,NULL);
