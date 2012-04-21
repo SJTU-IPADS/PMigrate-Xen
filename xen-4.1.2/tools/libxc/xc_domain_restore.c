@@ -1340,7 +1340,6 @@ void* buttom_apply_batch(void* args) {
 		hvm = argu->hvm;
 		dinfo = &ctx->dinfo; 
 
-		fprintf(stderr, "Debug\n");
 		/* Dequeue End */
 
 		for ( i = 0, curpage = -1; i < j; i++ )
@@ -1370,6 +1369,7 @@ void* buttom_apply_batch(void* args) {
 
 			mfn = ctx->p2m[pfn];
 
+			printf("Debug1\n");
 			/* In verify mode, we use a copy; otherwise we work in place */
 			page = pagebuf->verify ? (void *)buf : (region_base + i*PAGE_SIZE);
 
