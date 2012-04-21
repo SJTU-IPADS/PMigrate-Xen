@@ -1359,7 +1359,6 @@ void* buttom_apply_batch(void* args) {
 
 			++curpage;
 
-			printf("Debug1\n");
 			if ( pfn > dinfo->p2m_size )
 			{
 				ERROR("pfn out of range");
@@ -1448,6 +1447,8 @@ void* buttom_apply_batch(void* args) {
 err_mapped:
 		munmap(region_base, j*PAGE_SIZE);
 		free(pfn_err);
+		pagebuf->nr_physpages = pagebuf->nr_pages = 0;
+		pagebuf_free(pagebuf);
 	}
 end:
     return NULL;
@@ -1744,7 +1745,7 @@ void* receive_patch(void* args)
 		}
 
 		/* Do Apply Page Here */
-		if (pagebuf->nr_pages == 0) {
+		if (pagebuf->nr_pages <= 0) {
 			recv_pagebuf_enqueue(pagebuf);
 		} else {
 			int j = pagebuf->nr_pages, curbatch = 0; 
@@ -1759,8 +1760,8 @@ void* receive_patch(void* args)
 					break;
 				curbatch += MAX_BATCH_SIZE;
 			}
-			pagebuf->nr_physpages = pagebuf->nr_pages = 0;
-			pagebuf_free(pagebuf);
+			//pagebuf->nr_physpages = pagebuf->nr_pages = 0;
+			//pagebuf_free(pagebuf);
 		}
 
 		pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
