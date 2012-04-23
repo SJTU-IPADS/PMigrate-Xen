@@ -2068,21 +2068,21 @@ mc_end:
 			hprintf("Final CPU Update\n");
             /* catch vcpu updates */
             if (pagebuf.new_ctxt_format) {
-				hprintf("Update 1\n");
+				perror("Update 1\n");
                 vcpumap = pagebuf.vcpumap;
                 max_vcpu_id = pagebuf.max_vcpu_id;
             }
             /* should this be deferred? does it change? */
             if ( pagebuf.identpt ) {
-				hprintf("Update 2\n");
+				perror("Update 2\n");
                 xc_set_hvm_param(xch, dom, HVM_PARAM_IDENT_PT, pagebuf.identpt);
 			}
             if ( pagebuf.vm86_tss ) {
-				hprintf("Update 3\n");
+				perror("Update 3\n");
                 xc_set_hvm_param(xch, dom, HVM_PARAM_VM86_TSS, pagebuf.vm86_tss);
 			}
             if ( pagebuf.console_pfn ) {
-				hprintf("Update 4\n");
+				perror("Update 4\n");
                 console_pfn = pagebuf.console_pfn;
 			}
             break;  /* our work here is done */
