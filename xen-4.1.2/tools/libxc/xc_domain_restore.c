@@ -1340,6 +1340,7 @@ void* buttom_apply_batch(void* args) {
 		hvm = argu->hvm;
 		dinfo = &ctx->dinfo; 
 
+		fprintf(stderr, "Apply a page\n");
 		/* Dequeue End */
 
 		for ( i = 0, curpage = -1; i < j; i++ )
@@ -1749,7 +1750,6 @@ void* receive_patch(void* args)
 			recv_pagebuf_enqueue(pagebuf);
 		} else {
 			int j = pagebuf->nr_pages, curbatch = 0; 
-			fprintf(stderr, "Receive one page\n");
 			while ( curbatch < j ) {
 				int brc;
 				brc = top_apply_batch(apply->xch/*global*/, apply->dom/*global*/, 
@@ -2154,7 +2154,7 @@ mc_end:
 		hprintf("After Last Checkpoint\n");
     }
 
-	hprintf("Before ACPI IO port\n");
+	fprintf(stderr, "Before ACPI IO port\n");
     if (pagebuf.acpi_ioport_location == 1) {
         DBGPRINTF("Use new firmware ioport from the checkpoint\n");
         xc_set_hvm_param(xch, dom, HVM_PARAM_ACPI_IOPORTS_LOCATION, 1);
@@ -2163,7 +2163,7 @@ mc_end:
     } else {
         ERROR("Error, unknow acpi ioport location (%i)", pagebuf.acpi_ioport_location);
     }
-	hprintf("After ACPI IO port\n");
+	fprintf(stderr, "After ACPI IO port\n");
 
     if ( ctx->last_checkpoint )
     {
@@ -2174,12 +2174,12 @@ mc_end:
 
     // DPRINTF("Buffered checkpoint\n");
 
-	hprintf("Before GetBuf Page\n");
+	fprintf(stderr, "Before GetBuf Page\n");
     if ( pagebuf_get(xch, ctx, &pagebuf, io_fd, dom) ) {
         PERROR("error when buffering batch, finishing");
         goto finish;
     }
-	hprintf("After GetBuf Page\n");
+	fprintf(stderr, "After GetBuf Page\n");
     memset(&tmptail, 0, sizeof(tmptail));
     tmptail.ishvm = hvm;
     if ( buffer_tail(xch, ctx, &tmptail, io_fd, max_vcpu_id, vcpumap,
@@ -2610,14 +2610,14 @@ mc_end:
     goto out;
 
   finish_hvm:
-	hprintf("Enter finish_hvm\n");
+	fprintf(stderr, "Enter finish_hvm\n");
     /* Dump the QEMU state to a state file for QEMU to load */
     if ( dump_qemu(xch, dom, &tailbuf.u.hvm) ) {
         PERROR("Error dumping QEMU state to file");
         goto out;
     }
 
-	hprintf("Zero Pages\n");
+	fprintf(stderr, "Zero Pages\n");
     /* These comms pages need to be zeroed at the start of day */
     if ( xc_clear_domain_page(xch, dom, tailbuf.u.hvm.magicpfns[0]) ||
          xc_clear_domain_page(xch, dom, tailbuf.u.hvm.magicpfns[1]) ||
@@ -2627,7 +2627,7 @@ mc_end:
         goto out;
     }
 
-	hprintf("XC_hvm_param\n");
+	fprintf(stderr, "XC_hvm_param\n");
     if ( (frc = xc_set_hvm_param(xch, dom,
                                  HVM_PARAM_IOREQ_PFN, tailbuf.u.hvm.magicpfns[0]))
          || (frc = xc_set_hvm_param(xch, dom,
@@ -2645,7 +2645,7 @@ mc_end:
     }
     *store_mfn = tailbuf.u.hvm.magicpfns[2];
 
-	hprintf("console_pfn\n");
+	fprintf(stderr, "console_pfn\n");
     if ( console_pfn ) {
         if ( xc_clear_domain_page(xch, dom, console_pfn) ) {
             PERROR("error zeroing console page");
@@ -2659,7 +2659,7 @@ mc_end:
         *console_mfn = console_pfn;
     }
 
-	hprintf("XC domain setcontext\n");
+	fprintf(stderr, "XC domain setcontext\n");
     frc = xc_domain_hvm_setcontext(xch, dom, tailbuf.u.hvm.hvmbuf,
                                    tailbuf.u.hvm.reclen);
     if ( frc )
