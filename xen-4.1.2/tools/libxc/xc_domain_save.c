@@ -1171,6 +1171,7 @@ void* send_patch(void* args)
 		if ( !ever_last_iter && argu->last_iter ) {
 			int flag = XC_LAST_ITER_FIRST;
 			ever_last_iter = 1;
+			fprintf(stderr, "Send Slave Last Iteration\n");
 			ssl_wrexact(wrap, conn, &flag, sizeof(flag));  // * Write Mark
 		}
 		

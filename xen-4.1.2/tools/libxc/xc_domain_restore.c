@@ -1738,7 +1738,7 @@ void* receive_patch(void* args)
 			pagebuf_init(pagebuf);
 			continue;
 		} else if (pagebuf->nr_pages == 1 && pagebuf->nr_physpages == 0) { // last iteration
-			hprintf("Slave inform Last Iteration\n");
+			fprintf(stderr, "Slave inform Last Iteration\n");
 			pthread_mutex_lock(&last_iteration_mutex); 
 			if (!mc_last_iter)
 				mc_last_iter = 1;
@@ -2039,11 +2039,6 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 			if ( !ever_last_iter && mc_last_iter ) { // Last iteration
 				fprintf(stderr, "Master Do last Iteration\n");
 				ever_last_iter = 1;
-				/*hprintf("Try to tmem_extra\n");
-				if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
-					PERROR("Error when reading batch");
-					goto out;
-				}*/
 				hprintf("Try to tsc_info\n");
 				if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
 					PERROR("Error when reading batch");
