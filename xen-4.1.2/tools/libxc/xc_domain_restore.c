@@ -2012,7 +2012,6 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 
 				pthread_mutex_lock(&recv_finish_cnt_mutex);
 				if (recv_finish_cnt < recv_slave_cnt) {
-					//fprintf(stderr, "recv_finish_cnt = %d\n", recv_finish_cnt);
 					pthread_mutex_unlock(&recv_finish_cnt_mutex);
 					nanosleep(SLEEP_LONG_TIME, NULL);
 					continue;
@@ -2038,7 +2037,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 
 			pthread_mutex_lock(&last_iteration_mutex); 
 			if ( !ever_last_iter && mc_last_iter ) { // Last iteration
-				hprintf("Master Do last Iteration\n");
+				fprintf(stderr, "Master Do last Iteration\n");
 				ever_last_iter = 1;
 				/*hprintf("Try to tmem_extra\n");
 				if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
@@ -2065,24 +2064,24 @@ mc_end:
         DBGPRINTF("batch %d\n",j);
 
         if ( j == 0 ) {
-			hprintf("Final CPU Update\n");
+			fprintf(stderr,"Final CPU Update\n");
             /* catch vcpu updates */
             if (pagebuf.new_ctxt_format) {
-				perror("Update 1\n");
+				fprintf(stderr,"Update 1\n");
                 vcpumap = pagebuf.vcpumap;
                 max_vcpu_id = pagebuf.max_vcpu_id;
             }
             /* should this be deferred? does it change? */
             if ( pagebuf.identpt ) {
-				perror("Update 2\n");
+				fprintf(stderr, "Update 2\n");
                 xc_set_hvm_param(xch, dom, HVM_PARAM_IDENT_PT, pagebuf.identpt);
 			}
             if ( pagebuf.vm86_tss ) {
-				perror("Update 3\n");
+				fprintf(stderr, "Update 3\n");
                 xc_set_hvm_param(xch, dom, HVM_PARAM_VM86_TSS, pagebuf.vm86_tss);
 			}
             if ( pagebuf.console_pfn ) {
-				perror("Update 4\n");
+				fprintf(stderr, "Update 4\n");
                 console_pfn = pagebuf.console_pfn;
 			}
             break;  /* our work here is done */
