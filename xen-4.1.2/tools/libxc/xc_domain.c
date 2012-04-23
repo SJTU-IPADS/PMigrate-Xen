@@ -20,6 +20,7 @@
  * Copyright (c) 2003, K A Fraser.
  */
 
+#include <sys/time.h>
 #include "xc_private.h"
 #include "xg_save_restore.h"
 #include <xen/memory.h>
@@ -729,6 +730,19 @@ int xc_domain_add_to_physmap(xc_interface *xch,
     return do_memory_op(xch, XENMEM_add_to_physmap, &xatp, sizeof(xatp));
 }
 
+__thread struct timeval out;
+__thread struct timeval out_end;
+__thread struct timeval inner;
+__thread struct timeval inner_end;
+__thread unsigned long long total_out_time;
+__thread unsigned long long total_inner_time;
+
+static unsigned long
+time_between(struct timeval begin, struct timeval end)
+{
+	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
+}
+
 int xc_domain_populate_physmap(xc_interface *xch,
                                uint32_t domid,
                                unsigned long nr_extents,
@@ -745,6 +759,7 @@ int xc_domain_populate_physmap(xc_interface *xch,
         .domid        = domid
     };
 
+	gettimeofday(&out, NULL);
     if ( xc_hypercall_bounce_pre(xch, extent_start) )
     {
         PERROR("Could not bounce memory for XENMEM_populate_physmap hypercall");
@@ -752,9 +767,15 @@ int xc_domain_populate_physmap(xc_interface *xch,
     }
     set_xen_guest_handle(reservation.extent_start, extent_start);
 
+	gettimeofday(&inner, NULL);
     err = do_memory_op(xch, XENMEM_populate_physmap, &reservation, sizeof(reservation));
+	gettimeofday(&inner_end, NULL);
 
     xc_hypercall_bounce_post(xch, extent_start);
+	gettimeofday(&out_end, NULL);
+
+	total_out_time += time_between(out, out_end);
+	total_inner_time += time_between(inner, inner_end);
     return err;
 }
 

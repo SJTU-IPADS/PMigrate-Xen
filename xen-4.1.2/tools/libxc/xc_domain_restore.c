@@ -1678,6 +1678,9 @@ struct timeval apply_time[20];
 struct timeval apply_time_end[20];
 unsigned long long total_apply_time[20];
 
+
+extern __thread unsigned long long total_out_time;
+extern __thread unsigned long long total_inner_time;
 /* Roger 
  * Migration server slave thread enter point */
 void* receive_patch(void* args)
@@ -1703,6 +1706,9 @@ void* receive_patch(void* args)
 	de_wrap->ssl_buf = (char*)malloc(de_wrap->ssl_buf_len);
 	de_wrap->cc = init_ssl_byname("aes128-cbc", "123Roger", CIPHER_DECRYPT);
 	/* End SSL */
+
+	/* Profile */
+	total_out_time = total_inner_time = 0;
 
 	/* apply */
 	p2m_batch = malloc(ROUNDUP(MAX_BATCH_SIZE * sizeof(xen_pfn_t), PAGE_SHIFT));
@@ -1785,6 +1791,9 @@ void* receive_patch(void* args)
 	hprintf("Slave Finish, ip = %s\n", ip);
 	free(region_mfn);
 	free(p2m_batch);
+
+	fprintf(stderr, "populate_map inner: %llu\n", total_inner_time);
+	fprintf(stderr, "populate_map out: %llu\n", total_out_time);
 
 	return NULL;
 }
