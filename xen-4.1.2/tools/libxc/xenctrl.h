@@ -1029,7 +1029,21 @@ int xc_domain_populate_physmap(xc_interface *xch,
                                unsigned int mem_flags,
                                xen_pfn_t *extent_start);
 
+int mc_xc_domain_populate_physmap(xc_interface *xch,
+                               uint32_t domid,
+                               unsigned long nr_extents,
+                               unsigned int extent_order,
+                               unsigned int mem_flags,
+                               xen_pfn_t *extent_start);
+
 int xc_domain_populate_physmap_exact(xc_interface *xch,
+                                     uint32_t domid,
+                                     unsigned long nr_extents,
+                                     unsigned int extent_order,
+                                     unsigned int mem_flags,
+                                     xen_pfn_t *extent_start);
+
+int mc_xc_domain_populate_physmap_exact(xc_interface *xch,
                                      uint32_t domid,
                                      unsigned long nr_extents,
                                      unsigned int extent_order,

@@ -21,6 +21,7 @@
  */
 
 #include <sys/time.h>
+#include <pthread.h>
 #include "xc_private.h"
 #include "xg_save_restore.h"
 #include <xen/memory.h>
@@ -759,6 +760,44 @@ int xc_domain_populate_physmap(xc_interface *xch,
         .domid        = domid
     };
 
+	//gettimeofday(&out, NULL);
+    if ( xc_hypercall_bounce_pre(xch, extent_start) )
+    {
+        PERROR("Could not bounce memory for XENMEM_populate_physmap hypercall");
+        return -1;
+    }
+    set_xen_guest_handle(reservation.extent_start, extent_start);
+
+	//gettimeofday(&inner, NULL);
+    err = do_memory_op(xch, XENMEM_populate_physmap, &reservation, sizeof(reservation));
+	//gettimeofday(&inner_end, NULL);
+
+    xc_hypercall_bounce_post(xch, extent_start);
+	//gettimeofday(&out_end, NULL);
+
+	//total_out_time += time_between(out, out_end);
+	//total_inner_time += time_between(inner, inner_end);
+    return err;
+}
+
+extern pthread_mutex_t recv_populate_mutex;
+
+int mc_xc_domain_populate_physmap(xc_interface *xch,
+                               uint32_t domid,
+                               unsigned long nr_extents,
+                               unsigned int extent_order,
+                               unsigned int mem_flags,
+                               xen_pfn_t *extent_start)
+{
+    int err;
+    DECLARE_HYPERCALL_BOUNCE(extent_start, nr_extents * sizeof(*extent_start), XC_HYPERCALL_BUFFER_BOUNCE_BOTH);
+    struct xen_memory_reservation reservation = {
+        .nr_extents   = nr_extents,
+        .extent_order = extent_order,
+        .mem_flags    = mem_flags,
+        .domid        = domid
+    };
+
 	gettimeofday(&out, NULL);
     if ( xc_hypercall_bounce_pre(xch, extent_start) )
     {
@@ -768,7 +807,9 @@ int xc_domain_populate_physmap(xc_interface *xch,
     set_xen_guest_handle(reservation.extent_start, extent_start);
 
 	gettimeofday(&inner, NULL);
+	pthread_mutex_lock(&recv_populate_mutex);
     err = do_memory_op(xch, XENMEM_populate_physmap, &reservation, sizeof(reservation));
+	pthread_mutex_unlock(&recv_populate_mutex);
 	gettimeofday(&inner_end, NULL);
 
     xc_hypercall_bounce_post(xch, extent_start);
@@ -789,6 +830,31 @@ int xc_domain_populate_physmap_exact(xc_interface *xch,
     int err;
 
     err = xc_domain_populate_physmap(xch, domid, nr_extents,
+                                     extent_order, mem_flags, extent_start);
+    if ( err == nr_extents )
+        return 0;
+
+    if ( err >= 0 )
+    {
+        DPRINTF("Failed allocation for dom %d: %ld extents of order %d\n",
+                domid, nr_extents, extent_order);
+        errno = EBUSY;
+        err = -1;
+    }
+
+    return err;
+}
+
+int mc_xc_domain_populate_physmap_exact(xc_interface *xch,
+                                     uint32_t domid,
+                                     unsigned long nr_extents,
+                                     unsigned int extent_order,
+                                     unsigned int mem_flags,
+                                     xen_pfn_t *extent_start)
+{
+    int err;
+
+    err = mc_xc_domain_populate_physmap(xch, domid, nr_extents,
                                      extent_order, mem_flags, extent_start);
     if ( err == nr_extents )
         return 0;
