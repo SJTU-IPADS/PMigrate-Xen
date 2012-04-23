@@ -2021,13 +2021,13 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 					if (recv_pagebuf_dequeue(&pagebuf_p) >= 0)
 						break;
 
-					apply_bottom_end = 1;
-					hprintf("Try VCPU INFO");
+					fprintf(stderr, "Try VCPU INFO");
 					if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
 						ERROR("Error when reading batch\n");
 						goto out;
 					}
 					pagebuf.nr_physpages = pagebuf.nr_pages = 0;
+					apply_bottom_end = 1;
 					goto mc_end;
 				}
 			} 
