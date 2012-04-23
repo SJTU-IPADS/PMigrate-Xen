@@ -123,6 +123,9 @@ pthread_mutex_t last_iteration_mutex;
 // Receive Iteration Barrier
 pthread_barrier_t recv_iter_barr;
 
+// Receive populate Mutex
+pthread_mutex_t recv_populate_mutex;
+
 
 int parse_dest_file(char* dest_file, char*** dests, int* dest_cnt); 
 int rune_add_ips(char** rune, char** dests, char ***ports, int dest_cnt, int port_cnt);

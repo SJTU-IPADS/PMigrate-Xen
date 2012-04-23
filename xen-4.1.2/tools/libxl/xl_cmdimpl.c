@@ -2840,7 +2840,9 @@ static void migrate_receive(int debug, int daemonize,
 		pthread_mutex_init(&apply_queue_mutex, NULL);
 		pthread_mutex_init(&recv_finish_cnt_mutex, NULL);
 		pthread_mutex_init(&last_iteration_mutex, NULL);
+		pthread_mutex_init(&recv_populate_mutex, NULL);
 		pthread_barrier_init(&recv_iter_barr, NULL, recv_slave_cnt);
+
 		mc_last_iter = 0;
 		pids = (pthread_t*) malloc(sizeof(pthread_t) * ip_cnt * port_cnt + 1);
 		fprintf(stderr, "ip_cnt is %d\n", ip_cnt);

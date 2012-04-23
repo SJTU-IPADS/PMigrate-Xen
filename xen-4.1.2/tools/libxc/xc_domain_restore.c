@@ -1231,6 +1231,7 @@ static int top_apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *
     } 
 
     /* Now allocate a bunch of mfns for this batch */
+	pthread_mutex_lock(&recv_populate_mutex);
     if ( nr_mfns &&
          (xc_domain_populate_physmap_exact(xch, dom, nr_mfns, 0,
                                             0, ctx->p2m_batch) != 0) )
@@ -1239,6 +1240,7 @@ static int top_apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *
         errno = ENOMEM;
         return -1;
     }
+	pthread_mutex_unlock(&recv_populate_mutex);
 
     /* Second pass for this batch: update p2m[] and region_mfn[] */
     nr_mfns = 0; 
@@ -1773,6 +1775,7 @@ void* receive_patch(void* args)
 		pagebuf_init(pagebuf);
 	}
 	hprintf("Slave Finish, ip = %s\n", ip);
+	free(region_mfn);
 
 	return NULL;
 }
