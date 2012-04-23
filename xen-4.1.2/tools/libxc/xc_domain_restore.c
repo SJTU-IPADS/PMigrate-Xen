@@ -2681,7 +2681,7 @@ mc_end:
 	//fprintf(stderr, "Receive Map Time %llu\n", total_page_map);
 	//fprintf(stderr, "Recieve Apply Page Time %llu\n", total_apply_time);
 	//
-	t = 0
+	t = 0;
 	fprintf(stderr, "Receive Map Time:");
 	for (i = 0; ; i++) {
 		if (total_page_map[i] != 0) {
@@ -2694,7 +2694,7 @@ mc_end:
 	}
 	fprintf(stderr, "\nReceive Total Map Time: %llu\n", t);
 
-	t = 0
+	t = 0;
 	fprintf(stderr, "Receive Top Apply Time:");
 	for (i = 0; ; i++) {
 		if (total_apply_time[i] != 0) {
