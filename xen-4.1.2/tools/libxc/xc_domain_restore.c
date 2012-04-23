@@ -1346,7 +1346,6 @@ void* buttom_apply_batch(void* args) {
 		hvm = argu->hvm;
 		dinfo = &ctx->dinfo; 
 
-		fprintf(stderr, "Apply a page\n");
 		/* Dequeue End */
 
 		for ( i = 0, curpage = -1; i < j; i++ )
