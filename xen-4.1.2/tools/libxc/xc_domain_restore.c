@@ -1749,6 +1749,7 @@ void* receive_patch(void* args)
 			recv_pagebuf_enqueue(pagebuf);
 		} else {
 			int j = pagebuf->nr_pages, curbatch = 0; 
+			fprintf(stderr, "Receive one page\n");
 			while ( curbatch < j ) {
 				int brc;
 				brc = top_apply_batch(apply->xch/*global*/, apply->dom/*global*/, 
