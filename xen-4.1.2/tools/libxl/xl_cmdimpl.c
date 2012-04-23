@@ -2851,6 +2851,7 @@ static void migrate_receive(int debug, int daemonize,
 				send_slave_argu_t *argu = malloc(sizeof(send_slave_argu_t));
 				argu->ip = ips[i];
 				argu->port = ports[i][j];
+				argu->id = port_cnt * i + j;
 				pthread_create(pids + port_cnt * i + j, NULL, &receive_patch, argu);
 			}
 		}

@@ -1186,13 +1186,11 @@ struct timeval recv_page_map;
 struct timeval recv_page_map_end;
 unsigned long long total_page_map = 0;
 
-#if 0
 static unsigned long
 time_between(struct timeval begin, struct timeval end)
 {
 	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
 }
-#endif
 
 static int top_apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
 		xen_pfn_t* region_mfn, xen_pfn_t* p2m_batch, unsigned long* pfn_type, int pae_extended_cr3,
@@ -1675,6 +1673,11 @@ struct global_mc_apply_para {
 	int ready; // ready flag
 } global_mc_top_apply;
 
+
+struct timeval apply_time[20];
+struct timeval apply_time_end[20];
+unsigned long long total_apply_time[20];
+
 /* Roger 
  * Migration server slave thread enter point */
 void* receive_patch(void* args)
@@ -1683,6 +1686,7 @@ void* receive_patch(void* args)
 	send_slave_argu_t *argu = (send_slave_argu_t*)args;
 	char* ip = argu->ip;
 	char* port = argu->port;
+	int id = argu->id;
     pagebuf_t* pagebuf;
     xen_pfn_t *region_mfn = NULL;
 	xen_pfn_t *p2m_batch = NULL;
@@ -1759,6 +1763,7 @@ void* receive_patch(void* args)
 			recv_pagebuf_enqueue(pagebuf);
 		} else {
 			int j = pagebuf->nr_pages, curbatch = 0; 
+			gettimeofday(&apply_time[id], NULL);
 			while ( curbatch < j ) {
 				int brc;
 				brc = top_apply_batch(apply->xch/*global*/, apply->dom/*global*/, 
@@ -1770,8 +1775,8 @@ void* receive_patch(void* args)
 					break;
 				curbatch += MAX_BATCH_SIZE;
 			}
-			//pagebuf->nr_physpages = pagebuf->nr_pages = 0;
-			//pagebuf_free(pagebuf);
+			gettimeofday(&apply_time_end[id], NULL);
+			total_apply_time[id] += time_between(apply_time[id], apply_time_end[id]);
 		}
 
 		pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
@@ -1784,9 +1789,6 @@ void* receive_patch(void* args)
 	return NULL;
 }
 
-struct timeval apply_time;
-struct timeval apply_time_end;
-unsigned long long total_apply_time;
 
 
 int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
@@ -1801,6 +1803,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
     unsigned long mfn, pfn;
     unsigned int prev_pc;
     //int nraces = 0;
+	unsigned long long t = 0;
 
 	int ever_last_iter = 0;
 
@@ -1861,6 +1864,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 	mc_ctx = ctx;
 
 	hprintf("Enter Restore Doamin\n");
+	bzero(total_apply_time, sizeof(unsigned long long) * 20);
 
     pagebuf_init(&pagebuf);
     memset(&tailbuf, 0, sizeof(tailbuf));
@@ -2673,8 +2677,20 @@ mc_end:
         goto out;
     }
 
-	fprintf(stderr, "Recieve Map Time %llu\n", total_page_map);
-	fprintf(stderr, "Recieve Apply Page Time %llu\n", total_apply_time);
+	fprintf(stderr, "Receive Map Time %llu\n", total_page_map);
+	//fprintf(stderr, "Recieve Apply Page Time %llu\n", total_apply_time);
+	//
+	fprintf(stderr, "Receive Top Apply Time:");
+	for (i = 0; ; i++) {
+		if (total_apply_time[i] != 0) {
+			fprintf(stderr, "%llu\t", total_apply_time[i]);
+			t += total_apply_time[i];
+		}
+		else {
+			break;
+		}
+	}
+	fprintf(stderr, "\nReceive Total Apply Time: %llu\n", t);
     /* HVM success! */
     rc = 0;
 
