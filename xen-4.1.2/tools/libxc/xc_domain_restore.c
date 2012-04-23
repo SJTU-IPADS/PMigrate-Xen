@@ -537,9 +537,9 @@ static int buffer_tail_hvm(xc_interface *xch, struct restore_ctx *ctx,
         PERROR("Error reading magic PFNs");
         return -1;
     }
-	hprintf("magicpfn is %ld, %ld, %ld\n", buf->magicpfns[0], buf->magicpfns[1], buf->magicpfns[2]);
+	fprintf(stderr, "magicpfn is %ld, %ld, %ld\n", buf->magicpfns[0], buf->magicpfns[1], buf->magicpfns[2]);
 
-	hprintf("Read reclen\n");
+	fprintf(stderr, "Read reclen\n");
     if ( RDEXACT(fd, &buf->reclen, sizeof(buf->reclen)) ) {
         PERROR("Error reading HVM params size");
         return -1;
@@ -565,19 +565,19 @@ static int buffer_tail_hvm(xc_interface *xch, struct restore_ctx *ctx,
         }
     }
 
-	hprintf("Read hvmbuf, buf->reclen = %d\n", buf->reclen);
+	fprintf(stderr, "Read hvmbuf, buf->reclen = %d\n", buf->reclen);
     if ( RDEXACT(fd, buf->hvmbuf, buf->reclen) ) {
         PERROR("Error reading HVM params");
         return -1;
     }
 
-	hprintf("Read qemusig\n");
+	fprintf(stderr, "Read qemusig\n");
     if ( RDEXACT(fd, qemusig, sizeof(qemusig)) ) {
         PERROR("Error reading QEMU signature");
         return -1;
     }
 
-	hprintf("Qemusig: %s\n", qemusig);
+	fprintf(stderr, "Qemusig: %s\n", qemusig);
     /* The legacy live-migration QEMU record has no length information.
      * Short of reimplementing the QEMU parser, we're forced to just read
      * until EOF.
@@ -2678,7 +2678,7 @@ mc_end:
     rc = 0;
 
  out:
-	hprintf("rc = %d\n", rc);
+	fprintf(stderr, "rc = %d\n", rc);
     if ( (rc != 0) && (dom != 0) )
         xc_domain_destroy(xch, dom);
     xc_hypercall_buffer_free(xch, ctxt);
