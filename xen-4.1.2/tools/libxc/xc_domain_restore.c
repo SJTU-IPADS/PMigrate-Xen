@@ -1182,9 +1182,9 @@ static int pagebuf_get(xc_interface *xch, struct restore_ctx *ctx,
 /* Bottom Apply Flag */
 int apply_bottom_end = 0;
 
-struct timeval recv_page_map;
-struct timeval recv_page_map_end;
-unsigned long long total_page_map = 0;
+struct timeval recv_page_map[20];
+struct timeval recv_page_map_end[20];
+unsigned long long total_page_map[20];
 
 static unsigned long
 time_between(struct timeval begin, struct timeval end)
@@ -1195,7 +1195,7 @@ time_between(struct timeval begin, struct timeval end)
 static int top_apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
 		xen_pfn_t* region_mfn, xen_pfn_t* p2m_batch, unsigned long* pfn_type, int pae_extended_cr3,
 		unsigned int hvm, struct xc_mmu* mmu,
-		pagebuf_t* pagebuf, int curbatch)
+		pagebuf_t* pagebuf, int curbatch, int id)
 {
     int i, j, nr_mfns;
     /* Our mapping of the current region (batch) */
@@ -1267,11 +1267,11 @@ static int top_apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *
 
     /* Map relevant mfns */
     pfn_err = calloc(j, sizeof(*pfn_err));
-	//gettimeofday(&recv_page_map, NULL);
+	gettimeofday(&recv_page_map[id], NULL);
     region_base = xc_map_foreign_bulk(
         xch, dom, PROT_WRITE, region_mfn, pfn_err, j);
-	//gettimeofday(&recv_page_map_end, NULL);
-	//total_page_map  += time_between(recv_page_map, recv_page_map_end);
+	gettimeofday(&recv_page_map_end[id], NULL);
+	total_page_map[id] += time_between(recv_page_map[id], recv_page_map_end[id]);
 
     if ( region_base == NULL )
     {
@@ -1770,7 +1770,7 @@ void* receive_patch(void* args)
 						apply->ctx/*global*/, region_mfn/*local*/, p2m_batch/*local*/,
 						apply->pfn_type/*global share*/, apply->pae_extended_cr3/*global*/,
 						apply->hvm/*global*/, apply->mmu/*global*/, 
-						pagebuf/*local*/, curbatch/*local*/);
+						pagebuf/*local*/, curbatch/*local*/, id);
 				if ( brc < 0 )
 					break;
 				curbatch += MAX_BATCH_SIZE;
@@ -1865,6 +1865,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 
 	hprintf("Enter Restore Doamin\n");
 	bzero(total_apply_time, sizeof(unsigned long long) * 20);
+	bzero(total_page_map, sizeof(unsigned long long) * 20);
 
     pagebuf_init(&pagebuf);
     memset(&tailbuf, 0, sizeof(tailbuf));
@@ -2677,7 +2678,7 @@ mc_end:
         goto out;
     }
 
-	fprintf(stderr, "Receive Map Time %llu\n", total_page_map);
+	//fprintf(stderr, "Receive Map Time %llu\n", total_page_map);
 	//fprintf(stderr, "Recieve Apply Page Time %llu\n", total_apply_time);
 	//
 	fprintf(stderr, "Receive Top Apply Time:");
