@@ -686,15 +686,19 @@ static int buffer_tail(xc_interface *xch, struct restore_ctx *ctx,
                        uint64_t vcpumap, int ext_vcpucontext,
                        int vcpuextstate, uint32_t vcpuextstate_size)
 {
-	hprintf("In buffer_tail\n");
-    if ( buf->ishvm )
+	fprintf(stderr, "In buffer_tail\n");
+    if ( buf->ishvm ){
+		fprintf(stderr, "buffer_tail_hvm\n");
         return buffer_tail_hvm(xch, ctx, &buf->u.hvm, fd, max_vcpu_id, vcpumap,
                                ext_vcpucontext, vcpuextstate,
                                vcpuextstate_size);
-    else
+	}
+    else {
+		fprintf(stderr, "buffer_tail_pt\n");
         return buffer_tail_pv(xch, ctx, &buf->u.pv, fd, max_vcpu_id, vcpumap,
                               ext_vcpucontext, vcpuextstate,
                               vcpuextstate_size);
+	}
 }
 
 static void tailbuf_free_hvm(struct tailbuf_hvm *buf)
