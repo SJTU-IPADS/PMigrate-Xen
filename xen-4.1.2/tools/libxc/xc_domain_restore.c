@@ -2118,13 +2118,13 @@ mc_end:
         m += j;
         if ( m > MAX_PAGECACHE_USAGE )
         {
-            discard_file_cache(xch, io_fd, 0 /* no flush */);
             m = 0;
         }
 		pagebuf_free(&pagebuf);
 #endif
     }
 
+	discard_file_cache(xch, io_fd, 0 /* no flush */);
     /*
      * Ensure we flush all machphys updates before potential PAE-specific
      * reallocations below.
