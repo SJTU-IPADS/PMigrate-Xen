@@ -1195,7 +1195,7 @@ time_between(struct timeval begin, struct timeval end)
 #endif
 
 static int top_apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
-		xen_pfn_t* region_mfn, unsigned long* pfn_type, int pae_extended_cr3,
+		xen_pfn_t* region_mfn, xen_pfn_t* p2m_batch, unsigned long* pfn_type, int pae_extended_cr3,
 		unsigned int hvm, struct xc_mmu* mmu,
 		pagebuf_t* pagebuf, int curbatch)
 {
@@ -1225,7 +1225,7 @@ static int top_apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *
              (ctx->p2m[pfn] == INVALID_P2M_ENTRY) )
         {
             /* Have a live PFN which hasn't had an MFN allocated */
-            ctx->p2m_batch[nr_mfns++] = pfn; 
+            p2m_batch[nr_mfns++] = pfn; 
             ctx->p2m[pfn]--;
         }
     } 
@@ -1234,7 +1234,7 @@ static int top_apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *
 	pthread_mutex_lock(&recv_populate_mutex);
     if ( nr_mfns &&
          (xc_domain_populate_physmap_exact(xch, dom, nr_mfns, 0,
-                                            0, ctx->p2m_batch) != 0) )
+                                            0, p2m_batch) != 0) )
     { 
         ERROR("Failed to allocate memory for batch.!\n"); 
         errno = ENOMEM;
@@ -1257,7 +1257,7 @@ static int top_apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *
             if ( ctx->p2m[pfn] == (INVALID_P2M_ENTRY-1) )
             {
                 /* We just allocated a new mfn above; update p2m */
-                ctx->p2m[pfn] = ctx->p2m_batch[nr_mfns++]; 
+                ctx->p2m[pfn] = p2m_batch[nr_mfns++]; 
                 ctx->nr_pfns++; 
             }
 
@@ -1686,6 +1686,7 @@ void* receive_patch(void* args)
 	char* port = argu->port;
     pagebuf_t* pagebuf;
     xen_pfn_t *region_mfn = NULL;
+	xen_pfn_t *p2m_batch = NULL;
 
 	struct global_mc_apply_para *apply = &global_mc_top_apply;
 
@@ -1701,8 +1702,11 @@ void* receive_patch(void* args)
 	/* End SSL */
 
 	/* apply */
+	p2m_batch = malloc(ROUNDUP(MAX_BATCH_SIZE * sizeof(xen_pfn_t), PAGE_SHIFT));
     region_mfn = malloc(ROUNDUP(MAX_BATCH_SIZE * sizeof(xen_pfn_t), PAGE_SHIFT));
     memset(region_mfn, 0,
+           ROUNDUP(MAX_BATCH_SIZE * sizeof(xen_pfn_t), PAGE_SHIFT)); 
+    memset(p2m_batch, 0,
            ROUNDUP(MAX_BATCH_SIZE * sizeof(xen_pfn_t), PAGE_SHIFT)); 
 
 	hprintf("Slave start to connect\n");
@@ -1759,7 +1763,7 @@ void* receive_patch(void* args)
 			while ( curbatch < j ) {
 				int brc;
 				brc = top_apply_batch(apply->xch/*global*/, apply->dom/*global*/, 
-						apply->ctx/*global*/, region_mfn/*local*/, 
+						apply->ctx/*global*/, region_mfn/*local*/, p2m_batch/*local*/,
 						apply->pfn_type/*global share*/, apply->pae_extended_cr3/*global*/,
 						apply->hvm/*global*/, apply->mmu/*global*/, 
 						pagebuf/*local*/, curbatch/*local*/);
@@ -1776,6 +1780,7 @@ void* receive_patch(void* args)
 	}
 	hprintf("Slave Finish, ip = %s\n", ip);
 	free(region_mfn);
+	free(p2m_batch);
 
 	return NULL;
 }
