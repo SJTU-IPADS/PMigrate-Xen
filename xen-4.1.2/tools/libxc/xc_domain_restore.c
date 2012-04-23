@@ -2010,6 +2010,18 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 			while (recv_pagebuf_dequeue(&pagebuf_p) < 0) {
 				hprintf("Queue is empty\n");
 
+				pthread_mutex_lock(&last_iteration_mutex); 
+				if ( !ever_last_iter && mc_last_iter ) { // Last iteration
+					fprintf(stderr, "Master Do last Iteration\n");
+					ever_last_iter = 1;
+					hprintf("Try to tsc_info\n");
+					if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
+						PERROR("Error when reading batch");
+						goto out;
+					}
+				}
+				pthread_mutex_unlock(&last_iteration_mutex); 
+
 				pthread_mutex_lock(&recv_finish_cnt_mutex);
 				if (recv_finish_cnt < recv_slave_cnt) {
 					pthread_mutex_unlock(&recv_finish_cnt_mutex);
@@ -2034,18 +2046,6 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 			pthread_mutex_unlock(&recv_finish_cnt_mutex);
 
 			hprintf("Master Dequeue\n");
-
-			pthread_mutex_lock(&last_iteration_mutex); 
-			if ( !ever_last_iter && mc_last_iter ) { // Last iteration
-				fprintf(stderr, "Master Do last Iteration\n");
-				ever_last_iter = 1;
-				hprintf("Try to tsc_info\n");
-				if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
-					PERROR("Error when reading batch");
-					goto out;
-				}
-			}
-			pthread_mutex_unlock(&last_iteration_mutex); 
 
 			pagebuf = *pagebuf_p;
 			if (pagebuf_p)
