@@ -26,6 +26,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <malloc.h>
 
 #include "xg_private.h"
 #include "xg_save_restore.h"
@@ -1681,6 +1682,7 @@ unsigned long long total_apply_time[20];
 
 extern __thread unsigned long long total_out_time;
 extern __thread unsigned long long total_inner_time;
+extern __thread char *local_malloc_buf;
 /* Roger 
  * Migration server slave thread enter point */
 void* receive_patch(void* args)
@@ -1696,6 +1698,7 @@ void* receive_patch(void* args)
 
 	struct global_mc_apply_para *apply = &global_mc_top_apply;
 
+
 	/* Init SSL */
 	struct ssl_wrap *wrap = (struct ssl_wrap*)malloc(sizeof(struct ssl_wrap));
 	struct ssl_wrap *de_wrap = (struct ssl_wrap*)malloc(sizeof(struct ssl_wrap));
@@ -1707,6 +1710,7 @@ void* receive_patch(void* args)
 	de_wrap->cc = init_ssl_byname("aes128-cbc", "123Roger", CIPHER_DECRYPT);
 	/* End SSL */
 
+	local_malloc_buf = memalign(PAGE_SIZE, 3 * PAGE_SIZE);
 	/* Profile */
 	total_out_time = total_inner_time = 0;
 
@@ -1791,6 +1795,7 @@ void* receive_patch(void* args)
 	hprintf("Slave Finish, ip = %s\n", ip);
 	free(region_mfn);
 	free(p2m_batch);
+	free(local_malloc_buf);
 
 	fprintf(stderr, "populate_map inner: %llu\n", total_inner_time);
 	fprintf(stderr, "populate_map out: %llu\n", total_out_time);
