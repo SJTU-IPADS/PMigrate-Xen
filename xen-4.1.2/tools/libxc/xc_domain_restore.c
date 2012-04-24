@@ -1803,7 +1803,7 @@ void* receive_patch(void* args)
 	return NULL;
 }
 
-
+extern int is_migrate;
 
 int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
                       unsigned int store_evtchn, unsigned long *store_mfn,
@@ -1873,6 +1873,7 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
     struct domain_info_context *dinfo = &ctx->dinfo;
 
 
+	is_migrate = 1;
 	mc_dom = dom;
 	mc_xch = xch;
 	mc_ctx = ctx;
