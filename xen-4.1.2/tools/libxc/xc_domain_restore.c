@@ -1269,8 +1269,8 @@ static int top_apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *
     /* Map relevant mfns */
     pfn_err = calloc(j, sizeof(*pfn_err));
 	gettimeofday(&recv_page_map[id], NULL);
-    region_base = xc_map_foreign_bulk(
-        xch, dom, PROT_WRITE, region_mfn, pfn_err, j);
+    region_base = mc_xc_map_foreign_bulk(
+        xch, dom, PROT_WRITE, region_mfn, pfn_err, j, id);
 	gettimeofday(&recv_page_map_end[id], NULL);
 	total_page_map[id] += time_between(recv_page_map[id], recv_page_map_end[id]);
 

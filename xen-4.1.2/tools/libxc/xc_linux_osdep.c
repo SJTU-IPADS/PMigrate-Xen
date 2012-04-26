@@ -298,18 +298,20 @@ static void *linux_privcmd_map_foreign_bulk(xc_interface *xch, xc_osdep_handle h
     return addr;
 }
 
-static void* mc_base_addr = (void*)0x300000000000;
+#define MAP_XEN_PRIVATE 0x40
+
+//static void* mc_base_addr = (void*)0x300000000000;
 static void *mc_linux_privcmd_map_foreign_bulk(xc_interface *xch, xc_osdep_handle h,
                                             uint32_t dom, int prot,
                                             const xen_pfn_t *arr, int *err, unsigned int num, int id)
 {
     int fd = (int)h;
     privcmd_mmapbatch_v2_t ioctlx;
-    void *addr = mc_base_addr + id * 512 * 512 * 4096; 
+    void *addr = NULL; //= mc_base_addr + id * 512 * 512 * 4096; 
     unsigned int i;
     int rc;
 
-    addr = mmap(addr, (unsigned long)num << XC_PAGE_SHIFT, prot, MAP_SHARED,
+    addr = mmap(NULL, (unsigned long)num << XC_PAGE_SHIFT, prot, MAP_SHARED | MAP_XEN_PRIVATE,
                 fd, 0);
     if ( addr == MAP_FAILED )
     {
