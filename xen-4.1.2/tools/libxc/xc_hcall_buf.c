@@ -201,7 +201,7 @@ void *xc__hypercall_buffer_alloc_pages(xc_interface *xch, xc_hypercall_buffer_t 
     size_t size = nr_pages * PAGE_SIZE;
     void *p = hypercall_buffer_cache_alloc(xch, nr_pages);
 	
-	if (!p && nr_pages <= 3 && is_migrate) {
+	if (!p && nr_pages <= 10 && is_migrate) {
 		p = local_malloc_buf;
 	}
 

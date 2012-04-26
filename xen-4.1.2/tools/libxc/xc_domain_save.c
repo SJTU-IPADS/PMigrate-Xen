@@ -1071,7 +1071,7 @@ void* send_patch(void* args)
 	/* End SSL */
 
 	free(args);
-	local_malloc_buf = memalign(PAGE_SIZE, 3 * PAGE_SIZE);
+	local_malloc_buf = memalign(PAGE_SIZE, 10 * PAGE_SIZE);
 	hprintf("Slave start to connect\n");
 	if ((conn = mc_net_client(ip, port)) < 0) {
 		exit(-1);

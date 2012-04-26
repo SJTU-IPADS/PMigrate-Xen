@@ -760,7 +760,6 @@ int xc_domain_populate_physmap(xc_interface *xch,
         .domid        = domid
     };
 
-	//gettimeofday(&out, NULL);
     if ( xc_hypercall_bounce_pre(xch, extent_start) )
     {
         PERROR("Could not bounce memory for XENMEM_populate_physmap hypercall");
@@ -768,15 +767,9 @@ int xc_domain_populate_physmap(xc_interface *xch,
     }
     set_xen_guest_handle(reservation.extent_start, extent_start);
 
-	//gettimeofday(&inner, NULL);
     err = do_memory_op(xch, XENMEM_populate_physmap, &reservation, sizeof(reservation));
-	//gettimeofday(&inner_end, NULL);
 
     xc_hypercall_bounce_post(xch, extent_start);
-	//gettimeofday(&out_end, NULL);
-
-	//total_out_time += time_between(out, out_end);
-	//total_inner_time += time_between(inner, inner_end);
     return err;
 }
 

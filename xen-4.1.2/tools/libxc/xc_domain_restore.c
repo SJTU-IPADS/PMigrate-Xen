@@ -1710,7 +1710,7 @@ void* receive_patch(void* args)
 	de_wrap->cc = init_ssl_byname("aes128-cbc", "123Roger", CIPHER_DECRYPT);
 	/* End SSL */
 
-	local_malloc_buf = memalign(PAGE_SIZE, 3 * PAGE_SIZE);
+	local_malloc_buf = memalign(PAGE_SIZE, 10 * PAGE_SIZE);
 	/* Profile */
 	total_out_time = total_inner_time = 0;
 
