@@ -2663,6 +2663,11 @@ static void migrate_domain(const char *domain_spec, char *rune,
 	init_list_head(send_argu_head);
 	pthread_mutex_init(&send_argu_head_mutex, NULL);
 
+	/* Init Pagebuf pool */
+	pagebuf_pool = (struct list_item*)malloc(sizeof(struct list_item));
+	init_list_head(pagebuf_pool);
+	pthread_mutex_init(&pagebuf_pool_mutex, NULL);
+
 	/* Create Slave to Connet */
 	{
 		int i, j;

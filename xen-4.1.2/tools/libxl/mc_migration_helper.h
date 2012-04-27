@@ -116,6 +116,10 @@ int recv_slave_cnt;
 struct list_item *apply_queue_head;
 pthread_mutex_t apply_queue_mutex;
 
+// Pagebuf pool
+struct list_item *pagebuf_pool;
+pthread_mutex_t pagebuf_pool_mutex;
+
 // Last Iteration
 int mc_last_iter;
 pthread_mutex_t last_iteration_mutex;
@@ -140,6 +144,8 @@ int send_argu_enqueue(send_argu_t* argu);
 int send_argu_dequeue(send_argu_t **argu);
 int recv_pagebuf_enqueue(pagebuf_t *pagebuf);
 int recv_pagebuf_dequeue(pagebuf_t **pagebuf);
+int pagebuf_pool_enqueue(pagebuf_t *pagebuf); 
+int pagebuf_pool_dequeue(pagebuf_t **pagebuf); 
 int apply_enqueue(top_to_buttom_t *argu);
 int apply_dequeue(top_to_buttom_t **argu);
 #endif

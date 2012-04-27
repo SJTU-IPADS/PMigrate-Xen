@@ -1453,7 +1453,8 @@ err_mapped:
 		munmap(region_base, j*PAGE_SIZE);
 		free(pfn_err);
 		pagebuf->nr_physpages = pagebuf->nr_pages = 0;
-		pagebuf_free(pagebuf);
+		//pagebuf_free(pagebuf);
+		pagebuf_pool_enqueue(pagebuf);
 	}
 end:
     return NULL;
@@ -1698,7 +1699,6 @@ void* receive_patch(void* args)
 
 	struct global_mc_apply_para *apply = &global_mc_top_apply;
 
-
 	/* Init SSL */
 	struct ssl_wrap *wrap = (struct ssl_wrap*)malloc(sizeof(struct ssl_wrap));
 	struct ssl_wrap *de_wrap = (struct ssl_wrap*)malloc(sizeof(struct ssl_wrap));
@@ -1734,8 +1734,9 @@ void* receive_patch(void* args)
 	}
 	hprintf("Slave Ready\n");
 
-	pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
-    pagebuf_init(pagebuf);
+	//pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
+    //pagebuf_init(pagebuf);
+	while (pagebuf_pool_dequeue(&pagebuf) < 0) nanosleep(SLEEP_SHORT_TIME, NULL);
 	while ( (pagecount = slave_pagebuf_get_one(mc_xch, mc_ctx, pagebuf, conn, mc_dom, de_wrap)) > 0 ) {
 		hprintf("Slave Read Page, ip = %s, read %d pages\n", ip, pagecount);
 		if (pagebuf->nr_pages == 0 && pagebuf->nr_physpages == 1) { // finish
@@ -1743,6 +1744,8 @@ void* receive_patch(void* args)
 			pthread_mutex_lock(&recv_finish_cnt_mutex);
 			recv_finish_cnt++;
 			pthread_mutex_unlock(&recv_finish_cnt_mutex);
+			pagebuf->nr_pages = pagebuf->nr_physpages = 0;
+			pagebuf_pool_enqueue(pagebuf);
 			break;
 		} else if (pagebuf->nr_pages == 0 && pagebuf->nr_physpages == 0) { // iteration barrier 
 
@@ -1752,9 +1755,9 @@ void* receive_patch(void* args)
 			ssl_write(wrap, conn, return_val, strlen(return_val));
 			//fprintf(stderr, "Recv: Write OK Back\n");
 			
-			free(pagebuf);
-			pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
-			pagebuf_init(pagebuf);
+			//free(pagebuf);
+			//pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
+			//pagebuf_init(pagebuf);
 			continue;
 		} else if (pagebuf->nr_pages == 1 && pagebuf->nr_physpages == 0) { // last iteration
 			fprintf(stderr, "Slave inform Last Iteration\n");
@@ -1762,9 +1765,10 @@ void* receive_patch(void* args)
 			if (!mc_last_iter)
 				mc_last_iter = 1;
 			pthread_mutex_unlock(&last_iteration_mutex); 
-			free(pagebuf);
-			pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
-			pagebuf_init(pagebuf);
+			//free(pagebuf);
+			//pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
+			//pagebuf_init(pagebuf);
+			pagebuf->nr_pages = pagebuf->nr_physpages = 0;
 			continue;
 		}
 
@@ -1789,8 +1793,9 @@ void* receive_patch(void* args)
 			total_apply_time[id] += time_between(apply_time[id], apply_time_end[id]);
 		}
 
-		pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
-		pagebuf_init(pagebuf);
+		//pagebuf = (pagebuf_t*)malloc(sizeof(pagebuf_t));
+		//pagebuf_init(pagebuf);
+		while (pagebuf_pool_dequeue(&pagebuf) < 0) nanosleep(SLEEP_SHORT_TIME, NULL);
 	}
 	hprintf("Slave Finish, ip = %s\n", ip);
 	free(region_mfn);
@@ -1804,6 +1809,16 @@ void* receive_patch(void* args)
 }
 
 extern int is_migrate;
+
+static void init_pagebuf_pool(int slave_cnt) {
+	int i;
+#define SLAVE_RATIO 10
+	for ( i = 0; i < slave_cnt * SLAVE_RATIO; i++ ) {
+		pagebuf_t *pagebuf = malloc(sizeof(*pagebuf));
+		pagebuf_init(pagebuf);
+		pagebuf_pool_enqueue(pagebuf);
+	}
+}
 
 int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
                       unsigned int store_evtchn, unsigned long *store_mfn,
@@ -2014,6 +2029,9 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 	global_mc_top_apply.mmu = mmu;
 	global_mc_top_apply.ready = 1;
 
+	/* Pagebuf pool */
+	init_pagebuf_pool(recv_slave_cnt);
+
  loadpages:
 	
 	hprintf("Before For Loop\n");
@@ -2026,13 +2044,6 @@ int xc_domain_restore(xc_interface *xch, int io_fd, uint32_t dom,
 
 		// Roger
         if ( !ctx->completed ) {
-            //pagebuf.nr_physpages = pagebuf.nr_pages = 0;
-            /* if ( pagebuf_get_one(xch, ctx, &pagebuf, io_fd, dom) < 0 ) {
-                PERROR("Error when reading batch");
-                goto out;
-            } */
-			//char buf[strlen(mc_end_string) + 1];
-			//int buf_count = 0, sum = 0;
 
 			while (recv_pagebuf_dequeue(&pagebuf_p) < 0) {
 				hprintf("Queue is empty\n");

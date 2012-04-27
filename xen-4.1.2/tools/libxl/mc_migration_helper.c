@@ -280,3 +280,40 @@ int apply_dequeue(top_to_buttom_t **argu)
 
 	return 0;
 }
+
+int pagebuf_pool_enqueue(pagebuf_t *pagebuf)
+{
+	struct list_item *item;
+	
+	pthread_mutex_lock(&pagebuf_pool_mutex);
+	item = (struct list_item*)malloc(sizeof(struct list_item));
+	item->item = pagebuf;
+
+	item->next = pagebuf_pool->next;
+	item->prev = pagebuf_pool;
+	item->next->prev = item;
+	pagebuf_pool->next = item;
+	pthread_mutex_unlock(&pagebuf_pool_mutex);
+
+	return 0;
+}
+
+int pagebuf_pool_dequeue(pagebuf_t **pagebuf) 
+{
+	struct list_item *item;
+
+	pthread_mutex_lock(&pagebuf_pool_mutex);
+	if (pagebuf_pool->next == pagebuf_pool) {
+		pthread_mutex_unlock(&pagebuf_pool_mutex);
+		return -1;
+	}
+	item = pagebuf_pool->prev;
+	*pagebuf = (pagebuf_t *)item->item; 
+	pagebuf_pool->prev = item->prev;
+	pagebuf_pool->prev->next = pagebuf_pool;
+	free(item);
+	pthread_mutex_unlock(&pagebuf_pool_mutex);
+
+	return 0;
+}
+
