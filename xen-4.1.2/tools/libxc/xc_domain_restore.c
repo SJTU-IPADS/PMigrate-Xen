@@ -1193,6 +1193,7 @@ time_between(struct timeval begin, struct timeval end)
 	    return (end.tv_sec - begin.tv_sec) * 1000000 + (end.tv_usec - begin.tv_usec);
 }
 
+#if 0
 static int top_apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
 		xen_pfn_t* region_mfn, xen_pfn_t* p2m_batch, unsigned long* pfn_type, int pae_extended_cr3,
 		unsigned int hvm, struct xc_mmu* mmu,
@@ -1299,7 +1300,9 @@ static int top_apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *
 	/* Enqueue End */
 	return 0;
 }
+#endif
 
+#if 0
 void* buttom_apply_batch(void* args) {
 	/* Local */
 	int i, curpage;
@@ -1459,10 +1462,10 @@ err_mapped:
 end:
     return NULL;
 }
+#endif
 
-#if 0
 static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
-                       xen_pfn_t* region_mfn, unsigned long* pfn_type, int pae_extended_cr3,
+                       xen_pfn_t* region_mfn, xen_pfn_t* p2m_batch, unsigned long* pfn_type, int pae_extended_cr3,
                        unsigned int hvm, struct xc_mmu* mmu,
                        pagebuf_t* pagebuf, int curbatch)
 {
@@ -1497,15 +1500,15 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
              (ctx->p2m[pfn] == INVALID_P2M_ENTRY) )
         {
             /* Have a live PFN which hasn't had an MFN allocated */
-            ctx->p2m_batch[nr_mfns++] = pfn; 
+            p2m_batch[nr_mfns++] = pfn; 
             ctx->p2m[pfn]--;
         }
     } 
 
     /* Now allocate a bunch of mfns for this batch */
     if ( nr_mfns &&
-         (xc_domain_populate_physmap_exact(xch, dom, nr_mfns, 0,
-                                            0, ctx->p2m_batch) != 0) )
+         (mc_xc_domain_populate_physmap_exact(xch, dom, nr_mfns, 0,
+                                            0, p2m_batch) != 0) )
     { 
         ERROR("Failed to allocate memory for batch.!\n"); 
         errno = ENOMEM;
@@ -1527,7 +1530,7 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
             if ( ctx->p2m[pfn] == (INVALID_P2M_ENTRY-1) )
             {
                 /* We just allocated a new mfn above; update p2m */
-                ctx->p2m[pfn] = ctx->p2m_batch[nr_mfns++]; 
+                ctx->p2m[pfn] = p2m_batch[nr_mfns++]; 
                 ctx->nr_pfns++; 
             }
 
@@ -1539,11 +1542,8 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
 
     /* Map relevant mfns */
     pfn_err = calloc(j, sizeof(*pfn_err));
-	gettimeofday(&recv_page_map, NULL);
     region_base = xc_map_foreign_bulk(
         xch, dom, PROT_WRITE, region_mfn, pfn_err, j);
-	gettimeofday(&recv_page_map_end, NULL);
-	total_page_map  += time_between(recv_page_map, recv_page_map_end);
 
     if ( region_base == NULL )
     {
@@ -1662,7 +1662,6 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
 
     return rc;
 }
-#endif
 
 struct global_mc_apply_para {
 	xc_interface *xch;
@@ -1780,11 +1779,11 @@ void* receive_patch(void* args)
 			gettimeofday(&apply_time[id], NULL);
 			while ( curbatch < j ) {
 				int brc;
-				brc = top_apply_batch(apply->xch/*global*/, apply->dom/*global*/, 
+				brc = apply_batch(apply->xch/*global*/, apply->dom/*global*/, 
 						apply->ctx/*global*/, region_mfn/*local*/, p2m_batch/*local*/,
 						apply->pfn_type/*global share*/, apply->pae_extended_cr3/*global*/,
 						apply->hvm/*global*/, apply->mmu/*global*/, 
-						pagebuf/*local*/, curbatch/*local*/, id);
+						pagebuf/*local*/, curbatch/*local*/);
 				if ( brc < 0 )
 					break;
 				curbatch += MAX_BATCH_SIZE;

@@ -2860,7 +2860,7 @@ static void migrate_receive(int debug, int daemonize,
 				pthread_create(pids + port_cnt * i + j, NULL, &receive_patch, argu);
 			}
 		}
-		pthread_create(pids + ip_cnt * port_cnt, NULL, &buttom_apply_batch,NULL);
+		//pthread_create(pids + ip_cnt * port_cnt, NULL, &buttom_apply_batch,NULL);
 	}
 
     signal(SIGPIPE, SIG_IGN);

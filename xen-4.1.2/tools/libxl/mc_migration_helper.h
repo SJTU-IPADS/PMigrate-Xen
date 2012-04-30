@@ -138,7 +138,7 @@ int mc_net_client(char* ip, char* port);
 void init_banner(banner_t *banner, int count);
 void* send_patch(void* args);
 void* receive_patch(void* args);
-void* buttom_apply_batch(void* args);
+//void* buttom_apply_batch(void* args);
 int init_list_head(struct list_item *list_head);
 int send_argu_enqueue(send_argu_t* argu);
 int send_argu_dequeue(send_argu_t **argu);
