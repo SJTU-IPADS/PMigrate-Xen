@@ -1542,8 +1542,8 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
 
     /* Map relevant mfns */
     pfn_err = calloc(j, sizeof(*pfn_err));
-    region_base = xc_map_foreign_bulk(
-        xch, dom, PROT_WRITE, region_mfn, pfn_err, j);
+    region_base = mc_xc_map_foreign_bulk(
+        xch, dom, PROT_WRITE, region_mfn, pfn_err, j, 0);
 
     if ( region_base == NULL )
     {

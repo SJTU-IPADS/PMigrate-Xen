@@ -1379,6 +1379,7 @@ DEFINE_time(except_last_time);
 DEFINE_time(last_iter_time);
 DEFINE_time(down_time);
 DEFINE_time(total_migration_time);
+DEFINE_for_time(dirty_page_time);
 
 unsigned long long total_map_time = 0;
 unsigned long send_page_cnt = 0;
@@ -2134,7 +2135,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
             }
 
-			//pthread_mutex_lock(&qos_pause_mutex);
+			gettimeofday(&dirty_page_time, NULL);
             if ( xc_shadow_control(xch, dom,
                                    XEN_DOMCTL_SHADOW_OP_CLEAN, HYPERCALL_BUFFER(to_send),
                                    dinfo->p2m_size, NULL, 0, &stats) != dinfo->p2m_size )
@@ -2142,7 +2143,9 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 PERROR("Error flushing shadow PT");
                 goto out;
             }
-			//pthread_mutex_unlock(&qos_pause_mutex);
+			gettimeofday(&dirty_page_time_end, NULL);
+			fprintf(stderr, "Dirty Page Time %lu\n", time_between(dirty_page_time, dirty_page_time_end));
+			dirty_page_time_total += time_between(dirty_page_time, dirty_page_time_end);
 
             sent_last_iter = sent_this_iter;
 
@@ -2672,6 +2675,8 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 		}
 	}
 
+	fprintf(stderr, "\nTotal Dirty Page time %llu\n", dirty_page_time_total );
+
 	/*fprintf(stderr, "\nUnmap System Call: ");
 	for (i = 0; ; i++) {
 		if (unmap_system[i] != 0) {
@@ -2682,7 +2687,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 		}
 	}*/
 
-	fprintf(stderr, "\nTotal Send Page: %lu\n", prof_cnt.send_page_cnt);
+	fprintf(stderr, "Total Send Page: %lu\n", prof_cnt.send_page_cnt);
 
     return !!rc;
 }
