@@ -1467,7 +1467,7 @@ end:
 static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
                        xen_pfn_t* region_mfn, xen_pfn_t* p2m_batch, unsigned long* pfn_type, int pae_extended_cr3,
                        unsigned int hvm, struct xc_mmu* mmu,
-                       pagebuf_t* pagebuf, int curbatch)
+                       pagebuf_t* pagebuf, int curbatch, int id)
 {
     int i, j, curpage, nr_mfns;
     /* used by debug verify code */
@@ -1542,8 +1542,12 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
 
     /* Map relevant mfns */
     pfn_err = calloc(j, sizeof(*pfn_err));
+
+	gettimeofday(&recv_page_map[id], NULL);
     region_base = mc_xc_map_foreign_bulk(
         xch, dom, PROT_WRITE, region_mfn, pfn_err, j, 0);
+	gettimeofday(&recv_page_map_end[id], NULL);
+	total_page_map[id] += time_between(recv_page_map[id], recv_page_map_end[id]);
 
     if ( region_base == NULL )
     {
@@ -1785,7 +1789,7 @@ void* receive_patch(void* args)
 						apply->ctx/*global*/, region_mfn/*local*/, p2m_batch/*local*/,
 						apply->pfn_type/*global share*/, apply->pae_extended_cr3/*global*/,
 						apply->hvm/*global*/, apply->mmu/*global*/, 
-						pagebuf/*local*/, curbatch/*local*/);
+						pagebuf/*local*/, curbatch/*local*/, id);
 				if ( brc < 0 )
 					break;
 				curbatch += MAX_BATCH_SIZE;
