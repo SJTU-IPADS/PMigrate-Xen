@@ -2840,6 +2840,7 @@ static void migrate_receive(int debug, int daemonize,
 		init_list_head(recv_pagebuf_head);
 		apply_queue_head = malloc(sizeof(struct list_item));
 		init_list_head(apply_queue_head);
+		init_list_head(pagebuf_pool);
 
 		pthread_mutex_init(&recv_pagebuf_head_mutex, NULL);
 		pthread_mutex_init(&apply_queue_mutex, NULL);
@@ -2867,7 +2868,6 @@ static void migrate_receive(int debug, int daemonize,
     /* if we get SIGPIPE we'd rather just have it as an error */
 
 	/* Make sure every slave is ready */
-	init_list_head(pagebuf_pool);
 	while(1) {
 		pthread_mutex_lock(&receive_ready_banner.mutex);
 		if (receive_ready_banner.cnt == recv_slave_cnt)
