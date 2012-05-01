@@ -2673,6 +2673,7 @@ static void migrate_domain(const char *domain_spec, char *rune,
 		int i, j;
 		pids = (pthread_t*) malloc(sizeof(pthread_t) * slave_cnt);
 
+		send_argu_head_cnt = 0;
 		init_banner(&sender_iter_banner, slave_cnt + 1); // Slave + Master
 		for (i = 0; i < dest_cnt; i++) {
 			for (j = 0; j < port_cnt; j++) {

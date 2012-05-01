@@ -185,6 +185,7 @@ int send_argu_enqueue(send_argu_t* argu)
 	item->prev = send_argu_head;
 	item->next->prev = item;
 	send_argu_head->next = item;
+	send_argu_head_cnt++;
 	pthread_mutex_unlock(&send_argu_head_mutex);
 
 	return 0;
@@ -204,6 +205,7 @@ int send_argu_dequeue(send_argu_t **argu)
 	send_argu_head->prev= item->prev;
 	send_argu_head->prev->next = send_argu_head;
 	free(item);
+	send_argu_head_cnt--;
 	pthread_mutex_unlock(&send_argu_head_mutex);
 
 	return 0;

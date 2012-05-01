@@ -104,6 +104,7 @@ banner_t sender_iter_banner;
 // Argument in Send
 struct list_item *send_argu_head;
 pthread_mutex_t send_argu_head_mutex;
+unsigned long send_argu_head_cnt;
 // Pagebuf in Recv
 struct list_item *recv_pagebuf_head;
 pthread_mutex_t recv_pagebuf_head_mutex;
