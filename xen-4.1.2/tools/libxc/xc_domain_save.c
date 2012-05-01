@@ -1145,7 +1145,7 @@ void* send_patch(void* args)
 		map_page_t_cnt[id]++;
 		gettimeofday(&map_page_time[id], NULL);
 		region_base = xc_map_foreign_bulk(
-				xch, dom, PROT_READ, pfn_type, pfn_err, batch, id);
+				xch, dom, PROT_READ, pfn_type, pfn_err, batch);
 		gettimeofday(&map_page_time_end[id], NULL);
 		m_page[id] += time_between(map_page_time[id], map_page_time_end[id]);
 

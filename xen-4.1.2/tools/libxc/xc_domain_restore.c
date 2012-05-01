@@ -1507,7 +1507,7 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
 
     /* Now allocate a bunch of mfns for this batch */
     if ( nr_mfns &&
-         (xc_domain_populate_physmap_exact(xch, dom, nr_mfns, 0,
+         (mc_xc_domain_populate_physmap_exact(xch, dom, nr_mfns, 0,
                                             0, p2m_batch) != 0) )
     { 
         ERROR("Failed to allocate memory for batch.!\n"); 
@@ -1544,8 +1544,8 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
     pfn_err = calloc(j, sizeof(*pfn_err));
 
 	gettimeofday(&recv_page_map[id], NULL);
-    region_base = mc_xc_map_foreign_bulk(
-        xch, dom, PROT_WRITE, region_mfn, pfn_err, j, 0);
+    region_base = xc_map_foreign_bulk(
+        xch, dom, PROT_WRITE, region_mfn, pfn_err, j);
 	gettimeofday(&recv_page_map_end[id], NULL);
 	total_page_map[id] += time_between(recv_page_map[id], recv_page_map_end[id]);
 
