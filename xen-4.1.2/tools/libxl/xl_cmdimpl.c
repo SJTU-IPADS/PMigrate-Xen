@@ -2867,6 +2867,7 @@ static void migrate_receive(int debug, int daemonize,
     /* if we get SIGPIPE we'd rather just have it as an error */
 
 	/* Make sure every slave is ready */
+	init_list_head(pagebuf_pool);
 	while(1) {
 		pthread_mutex_lock(&receive_ready_banner.mutex);
 		if (receive_ready_banner.cnt == recv_slave_cnt)
@@ -2888,6 +2889,7 @@ static void migrate_receive(int debug, int daemonize,
     dom_info.restore_file = "incoming migration stream";
     dom_info.migrate_fd = 0; /* stdin */
     dom_info.migration_domname_r = &migration_domname;
+
 
     rc = create_domain(&dom_info);
     if (rc < 0) {
