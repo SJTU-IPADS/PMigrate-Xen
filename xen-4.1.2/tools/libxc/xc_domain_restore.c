@@ -1658,7 +1658,9 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
 
   err_mapped:
     munmap(region_base, j*PAGE_SIZE);
-    free(pfn_err);
+	free(pfn_err);
+	pagebuf->nr_physpages = pagebuf->nr_pages = 0;
+	pagebuf_pool_enqueue(pagebuf);
 
     return rc;
 }
