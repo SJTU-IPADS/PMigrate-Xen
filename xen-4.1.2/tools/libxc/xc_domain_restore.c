@@ -1507,7 +1507,7 @@ static int apply_batch(xc_interface *xch, uint32_t dom, struct restore_ctx *ctx,
 
     /* Now allocate a bunch of mfns for this batch */
     if ( nr_mfns &&
-         (mc_xc_domain_populate_physmap_exact(xch, dom, nr_mfns, 0,
+         (xc_domain_populate_physmap_exact(xch, dom, nr_mfns, 0,
                                             0, p2m_batch) != 0) )
     { 
         ERROR("Failed to allocate memory for batch.!\n"); 
