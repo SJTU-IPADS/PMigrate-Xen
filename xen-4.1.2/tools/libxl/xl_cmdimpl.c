@@ -2839,6 +2839,7 @@ static void migrate_receive(int debug, int daemonize,
 		recv_pagebuf_head = (struct list_item*)malloc(sizeof(struct list_item));
 		init_list_head(recv_pagebuf_head);
 		apply_queue_head = malloc(sizeof(struct list_item));
+		pagebuf_pool = malloc(sizeof(struct list_item));
 		init_list_head(apply_queue_head);
 		init_list_head(pagebuf_pool);
 
