@@ -1733,7 +1733,7 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
         {
             xc_report_progress_step(xch, N, dinfo->p2m_size);
 			
-			//while (send_argu_head_cnt > 100) nanosleep(SLEEP_SHORT_TIME, NULL);
+			while (send_argu_head_cnt > 100) nanosleep(SLEEP_SHORT_TIME, NULL);
 
 			// Every iteration need a new pfn_batch
 			pfn_err    = malloc(MAX_BATCH_SIZE * sizeof(*pfn_err));
