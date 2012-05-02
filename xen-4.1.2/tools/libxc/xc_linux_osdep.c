@@ -171,6 +171,14 @@ static void *linux_privcmd_map_foreign_batch(xc_interface *xch, xc_osdep_handle 
     return addr;
 }
 
+static inline unsigned long
+read_tsc(void)
+{
+    unsigned a, d;
+    __asm __volatile("rdtsc":"=a"(a), "=d"(d));
+    return ((unsigned long)a) | (((unsigned long) d) << 32);
+}
+
 static void *linux_privcmd_map_foreign_bulk(xc_interface *xch, xc_osdep_handle h,
                                             uint32_t dom, int prot,
                                             const xen_pfn_t *arr, int *err, unsigned int num)
