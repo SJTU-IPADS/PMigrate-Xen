@@ -1036,6 +1036,21 @@ time_between(struct timeval begin, struct timeval end)
 extern __thread unsigned long long total_malloc_time;
 extern __thread char *local_malloc_buf;
 extern __thread unsigned long long total_unmap_system_time;
+
+extern __thread unsigned long total_inner_map_time;
+extern __thread unsigned long total_inner_foreign_map_time;
+
+__thread unsigned long unmap_time;
+__thread unsigned long total_unmap_time = 0;
+
+static inline unsigned long
+read_tsc(void)
+{
+    unsigned a, d;
+    __asm __volatile("rdtsc":"=a"(a), "=d"(d));
+    return ((unsigned long)a) | (((unsigned long) d) << 32);
+}
+
 void* send_patch(void* args)
 {
 	char* ip = ((send_slave_argu_t*) args)->ip;
@@ -1229,7 +1244,11 @@ void* send_patch(void* args)
 		if ( !run )
 		{
 			gettimeofday(&unmap_page_time[id], NULL);
+
+			unmap_time = read_tsc();
 			munmap(region_base, batch*PAGE_SIZE);
+			total_unmap_time += read_tsc() - unmap_time;
+
 			gettimeofday(&invalid_page_end[id], NULL);
 			total_unmap_page[id] += time_between(unmap_page_time[id], invalid_page_end[id]);
 			i_page[id] += time_between(invalid_page[id], invalid_page_end[id]);
@@ -1342,7 +1361,9 @@ void* send_patch(void* args)
 		pfn_batch = NULL; 
 		pfn_err = NULL;
 		pfn_type = NULL;
+		unmap_time = read_tsc();
 		munmap(region_base, batch*PAGE_SIZE);
+		total_unmap_time += read_tsc() - unmap_time;
 	}
 
 out:
@@ -1350,10 +1371,15 @@ out:
 		int flag = XC_PARA_MIGR_END;
 		ssl_wrexact(wrap, conn, &flag, sizeof(flag));
 	}
+#define CPU_RATE 1.87
+#define second_convert(_a) (((double)(_a / (unsigned long)(CPU_RATE * 1000 * 1000))) / 1000)
+	fprintf(stderr, "Unmap time %.3lf\t", second_convert(total_unmap_time));
+	fprintf(stderr, "Inner Map time %.3lf\t", second_convert(total_inner_map_time));
+	fprintf(stderr, "Inner Foreign Map time %.3lf\n", second_convert(total_inner_foreign_map_time));
 
 	//unmap_system[id] = total_unmap_system_time;
-	fprintf(stderr, "Unmap System Time: %llu\n", total_malloc_time);
-	fprintf(stderr, "Malloc Time: %llu\n", total_malloc_time);
+	//fprintf(stderr, "Unmap System Time: %llu\n", total_malloc_time);
+	//fprintf(stderr, "Malloc Time: %llu\n", total_malloc_time);
 	return NULL;
 }
 

@@ -179,6 +179,11 @@ read_tsc(void)
     return ((unsigned long)a) | (((unsigned long) d) << 32);
 }
 
+__thread unsigned long inner_map_time;
+__thread unsigned long total_inner_map_time = 0;
+__thread unsigned long inner_foreign_map_time;
+__thread unsigned long total_inner_foreign_map_time = 0;
+
 static void *linux_privcmd_map_foreign_bulk(xc_interface *xch, xc_osdep_handle h,
                                             uint32_t dom, int prot,
                                             const xen_pfn_t *arr, int *err, unsigned int num)
@@ -189,8 +194,10 @@ static void *linux_privcmd_map_foreign_bulk(xc_interface *xch, xc_osdep_handle h
     unsigned int i;
     int rc;
 
+	inner_map_time = read_tsc();
     addr = mmap(NULL, (unsigned long)num << XC_PAGE_SHIFT, prot, MAP_SHARED,
                 fd, 0);
+	total_inner_map_time += read_tsc() - inner_map_time;
     if ( addr == MAP_FAILED )
     {
         PERROR("xc_map_foreign_batch: mmap failed");
@@ -203,6 +210,7 @@ static void *linux_privcmd_map_foreign_bulk(xc_interface *xch, xc_osdep_handle h
     ioctlx.arr = arr;
     ioctlx.err = err;
 
+	inner_foreign_map_time = read_tsc();
     rc = ioctl(fd, IOCTL_PRIVCMD_MMAPBATCH_V2, &ioctlx);
 
     if ( rc < 0 && errno == ENOENT )
@@ -292,6 +300,7 @@ static void *linux_privcmd_map_foreign_bulk(xc_interface *xch, xc_osdep_handle h
             rc = -1;
         }
     }
+	total_inner_foreign_map_time += read_tsc() - inner_foreign_map_time;
 
     if ( rc < 0 )
     {
