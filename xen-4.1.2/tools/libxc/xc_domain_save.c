@@ -1765,6 +1765,10 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
      * Each task contains 2 MBytes memory to be processed and sent to the destination
      * At the end of each iteration, all slaves will wait for the main process to 
      * create new tasks in the next iteration.
+     *
+     * Get dirty bitmap, git skip bitmap, check dirty bitmap and skip bitmap is done in the producer
+     * Map guest memory, handle memory pages, send memory data is done in the consumers (slave threads)
+     *
      */
     for ( ; ; )
     {
@@ -1796,16 +1800,13 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 			memset(pfn_type, 0,
 					ROUNDUP(MAX_BATCH_SIZE * sizeof(*pfn_type), PAGE_SHIFT));
 
-			//fprintf(stderr, "Before shadow_control\n");
             if ( !last_iter )
             {
                 /* Slightly wasteful to peek the whole array every time,
                    but this is fast enough for the moment. */
-				//pthread_mutex_lock(&qos_pause_mutex);
                 frc = xc_shadow_control(
                     xch, dom, XEN_DOMCTL_SHADOW_OP_PEEK, HYPERCALL_BUFFER(to_skip),
                     dinfo->p2m_size, NULL, 0, NULL);
-				//pthread_mutex_unlock(&qos_pause_mutex);
                 if ( frc != dinfo->p2m_size )
                 {
                     ERROR("Error peeking shadow bitmap");
@@ -1813,7 +1814,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 }
             }
 
-			//fprintf(stderr, "Before get pfn_type\n");
             /* load pfn_type[] with the mfn of all the pages we're doing in
                this batch. */
             for  ( batch = 0;
