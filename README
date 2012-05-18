@@ -1,0 +1,5 @@
+Parallel Xen Migration Version 1.0.0
+(Require Range-Lock Linux https://github.com/classicsong/Range-Lock-Linux)
+
+The default working branch is recv-opti-full-para.
+This branch should work with another Linux kernel project Range-Lock Linux ,https://github.com/classicsong/Range-Lock-Linux ,which greatly improve the parallelism of our parallel migration tool. 
