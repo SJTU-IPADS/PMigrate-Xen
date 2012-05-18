@@ -41,17 +41,17 @@
 #include "../libxl/qos.h"
 
 /*
-** Default values for important tuning parameters. Can override by passing
-** non-zero replacement values to xc_domain_save().
-**
-** XXX SMH: should consider if want to be able to override MAX_MBIT_RATE too.
-**
-*/
+ * Default values for important tuning parameters. Can override by passing
+ * non-zero replacement values to xc_domain_save().
+ *
+ */
 #define DEF_MAX_ITERS   29   /* limit us to 30 times round loop   */
 #define DEF_MAX_FACTOR   3   /* never send more than 3x p2m_size  */
 
 /* 
- * Roger 
+ * Roger/classicsong 
+ * debug printf
+ * hint printf
  */
 #define dprintf(_f, _a...) \
     if (mc_migrate_debug == 1) fprintf(stderr, _f, ## _a)
@@ -72,13 +72,6 @@ struct save_ctx {
     unsigned long m2p_mfn0;
     struct domain_info_context dinfo;
 };
-
-/* buffer for output */
-/*struct outbuf {
-    void* buf;
-    size_t size;
-    size_t pos;
-};*/
 
 #define OUTBUF_SIZE (16384 * 1024)
 
@@ -102,9 +95,9 @@ struct save_ctx {
       (pfn_to_mfn(mfn_to_pfn(_mfn)) == (_mfn))))
 
 /*
-** During (live) save/migrate, we maintain a number of bitmaps to track
-** which pages we have to send, to fixup, and to skip.
-*/
+ * During (live) save/migrate, we maintain a number of bitmaps to track
+ * which pages we have to send, to fixup, and to skip.
+ */
 
 #define BITS_PER_LONG (sizeof(unsigned long) * 8)
 #define BITS_TO_LONGS(bits) (((bits)+BITS_PER_LONG-1)/BITS_PER_LONG)
@@ -274,9 +267,9 @@ static inline int write_buffer(xc_interface *xch,
 #ifdef ADAPTIVE_SAVE
 
 /*
-** We control the rate at which we transmit (or save) to minimize impact
-** on running domains (including the target if we're doing live migrate).
-*/
+ * We control the rate at which we transmit (or save) to minimize impact
+ * on running domains (including the target if we're doing live migrate).
+ */
 
 #define MAX_MBIT_RATE    500      /* maximum transmit rate for migrate */
 #define START_MBIT_RATE  100      /* initial transmit rate for migrate */
@@ -360,8 +353,6 @@ static int ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n)
 #define RATE_IS_MAX() (0)
 #define ratewrite(xch, _io_fd, _live, _buf, _n) noncached_write((xch), (_io_fd), (_live), (_buf), (_n))
 #define initialize_mbit_rate()
-//#define mc_ratewrite(xch, _io_fd, _live, _buf, _n, _id) noncached_write((xch), (_io_fd), (_live), (_buf), (_n))
-
 #endif
 
 /* like write_buffer for ratewrite, which returns number of bytes written */
@@ -931,6 +922,7 @@ static int save_tsc_info(xc_interface *xch, uint32_t dom, int io_fd)
  * Sender Slave 
  */
 #define MAX_SLAVE 100
+
 static int mc_ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n, int id)
 {
     static int budget[MAX_SLAVE];
@@ -941,6 +933,10 @@ static int mc_ratewrite(xc_interface *xch, int io_fd, int live, void *buf, int n
     long long delta;
 	int burst_budget = 400 * 1024; /* 400 k / 0.01s = 40 M/s */
 
+    /*
+     * Rate control code here
+     * default 40 MByte/sec
+     */
     budget[id] -= n;
     if ( budget[id] < 0 )
     {
@@ -1010,6 +1006,22 @@ static int ssl_ratewrite(struct ssl_wrap *ssl, xc_interface *xch, int fd,
 	return size;
 }
 
+/*
+ * classicsong Hint:
+ * performance profiling variables here
+ * to profile the primitives of parallel live migration
+ * we track a lot of primitives
+ *
+ * the most important primitives are
+ *     mmap time/ foreign map time/ unmap time (per slave)
+ *     total migration time
+ *     downtime 
+ *     ...
+ *
+ * switch it off by defaut by seting PROFILE_MIGR_PRIMTIVE 0
+ */
+#define PROFILE_MIGR_PRIMTIVE 0
+
 struct timeval map_page_time[10];
 struct timeval map_page_time_end[10];
 unsigned int map_page_t_cnt[10];
@@ -1025,7 +1037,6 @@ unsigned long long total_unmap_page[10];
 struct timeval get_pfn_type_time[10];
 struct timeval get_pfn_type_time_end[10];
 unsigned long long total_get_pfn_type[10];
-//unsigned long long unmap_system[10];
 
 static unsigned long
 time_between(struct timeval begin, struct timeval end)
@@ -1051,6 +1062,16 @@ read_tsc(void)
     return ((unsigned long)a) | (((unsigned long) d) << 32);
 }
 
+/*
+ * classicsong
+ * profiling code end
+ */
+
+
+/*
+ * Roger/classicsong
+ * host side slave code
+ */
 void* send_patch(void* args)
 {
 	char* ip = ((send_slave_argu_t*) args)->ip;
@@ -1095,14 +1116,9 @@ void* send_patch(void* args)
 	io_fd = conn;
 	hprintf("Slave connect success\n");
 
-
-	/* Always write directly */ //#define wrexact(fd, buf, len) write_buffer(xch, last_iter, &ob, (fd), (buf), (len))
-//#define wrexact(fd, buf, len) write_exact((fd), (buf), (len))
 #ifdef ratewrite
 #undef ratewrite
 #endif
-	/* No rate control */
-//#define ratewrite(fd, live, buf, len) noncached_write(xch, (fd), (live), (buf), (len))
 	
 	while(1) {
 		while (send_argu_dequeue(&argu) < 0) { // Empty
@@ -1110,11 +1126,12 @@ void* send_patch(void* args)
 				int flag = XC_ITERATION_BARRIER;
 				int cnt = 0;
 				char buffer[10];
-				//fprintf(stderr, "Slave Meet Barrier\n");
 				ssl_wrexact(wrap, io_fd, &flag, sizeof(flag)); // * Write Mark
 				outbuf_flush(xch, &ob, io_fd);
 
-				//fprintf(stderr, "Send: %d Wait OK response\n", id);
+                /*
+                 * wait for receive side to recive all data in this iteration
+                 */
 				while ( (cnt = ssl_read(de_wrap, io_fd, buffer, strlen("OK"))) <= 0 ) { // * Read Mark
 					nanosleep(SLEEP_SHORT_TIME, NULL);
 				}
@@ -1125,15 +1142,15 @@ void* send_patch(void* args)
 					hprintf("Sync failed, ip %s\n", ip);
 				}
 
-				//fprintf(stderr, "Send: %d Wait At Iter Banner\n", id);
 				pthread_barrier_wait(&sender_iter_banner.barr);
+
+                //laster iteration detected
 			} else if (sender_iter_banner.cnt ==  2) {
 				hprintf("Slave Meet End Barrier\n");
 				outbuf_flush(xch, &ob, io_fd);
 				pthread_barrier_wait(&sender_iter_banner.barr);
 				goto out;
 			}
-			//fprintf(stderr, "%d Send Queue is Empty\n", id);
 			nanosleep(SLEEP_SHORT_TIME, NULL);
 		}
 
@@ -1158,30 +1175,34 @@ void* send_patch(void* args)
 		gettimeofday(&invalid_page[id], NULL);
 
 		map_page_t_cnt[id]++;
+#if PROFILE_MIGR_PRIMTIVE
 		gettimeofday(&map_page_time[id], NULL);
+#endif
 		region_base = xc_map_foreign_bulk(
 				xch, dom, PROT_READ, pfn_type, pfn_err, batch);
+#if PROFILE_MIGR_PRIMTIVE
 		gettimeofday(&map_page_time_end[id], NULL);
 		m_page[id] += time_between(map_page_time[id], map_page_time_end[id]);
+#endif
 
-		//fprintf(stderr, "Send Slave: Send Data start\n");
 		if ( region_base == NULL )
 		{
 			PERROR("map batch failed");
 			goto out;
 		}
-		//hprintf("region_base is %p\n", region_base);
 
 		/* Get page types */
-		//pthread_mutex_lock(&qos_pause_mutex);
-		gettimeofday(&get_pfn_type_time[id], NULL);
+#if PROFILE_MIGR_PRIMTIVE
+        gettimeofday(&get_pfn_type_time[id], NULL);
+#endif
 		if ( xc_get_pfn_type_batch(xch, dom, batch, pfn_type, id) )
 		{
 			PERROR("get_pfn_type_batch failed");
 			goto out;
 		}
+#if PROFILE_MIGR_PRIMTIVE
 		gettimeofday(&get_pfn_type_time_end[id], NULL);
-		//pthread_mutex_unlock(&qos_pause_mutex);
+#endif
 		
 		if ( !ever_last_iter && argu->last_iter ) {
 			int flag = XC_LAST_ITER_FIRST;
@@ -1190,8 +1211,6 @@ void* send_patch(void* args)
 			ssl_wrexact(wrap, conn, &flag, sizeof(flag));  // * Write Mark
 		}
 		
-
-		// Debug
 		free(argu);
 		argu = NULL;
 
@@ -1243,6 +1262,7 @@ void* send_patch(void* args)
 
 		if ( !run )
 		{
+#if PROFILE_MIGR_PRIMTIVE
 			gettimeofday(&unmap_page_time[id], NULL);
 
 			unmap_time = read_tsc();
@@ -1253,6 +1273,7 @@ void* send_patch(void* args)
 			total_unmap_page[id] += time_between(unmap_page_time[id], invalid_page_end[id]);
 			i_page[id] += time_between(invalid_page[id], invalid_page_end[id]);
 			total_get_pfn_type[id] += time_between(get_pfn_type_time[id], get_pfn_type_time_end[id]);
+#endif
 			continue; /* bail on this batch: no valid pages */
 		}
 
@@ -1361,9 +1382,11 @@ void* send_patch(void* args)
 		pfn_batch = NULL; 
 		pfn_err = NULL;
 		pfn_type = NULL;
-		unmap_time = read_tsc();
+#if PROFILE_MIGR_PRIMTIVE
+        unmap_time = read_tsc();
 		munmap(region_base, batch*PAGE_SIZE);
 		total_unmap_time += read_tsc() - unmap_time;
+#endif
 	}
 
 out:
@@ -1371,19 +1394,20 @@ out:
 		int flag = XC_PARA_MIGR_END;
 		ssl_wrexact(wrap, conn, &flag, sizeof(flag));
 	}
+#if PROFILE_MIGR_PRIMTIVE
 #define CPU_RATE 1.87
 #define second_convert(_a) (((double)(_a / (unsigned long)(CPU_RATE * 1000 * 1000))) / 1000)
 	fprintf(stderr, "Unmap time %.3lf\t", second_convert(total_unmap_time));
 	fprintf(stderr, "Inner Map time %.3lf\t", second_convert(total_inner_map_time));
 	fprintf(stderr, "Inner Foreign Map time %.3lf\n", second_convert(total_inner_foreign_map_time));
-
-	//unmap_system[id] = total_unmap_system_time;
-	//fprintf(stderr, "Unmap System Time: %llu\n", total_malloc_time);
-	//fprintf(stderr, "Malloc Time: %llu\n", total_malloc_time);
+#endif
 	return NULL;
 }
 
 
+/*
+ * main time profilers
+ */
 #define Proc_profile
 #ifdef  Proc_profile
 /* Time Profile */
@@ -1565,7 +1589,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     /* Domain is still running at this point */
     if ( live )
     {
-		//pthread_mutex_lock(&qos_pause_mutex);
         /* Live suspend. Enable log-dirty mode. */
         if ( xc_shadow_control(xch, dom,
                                XEN_DOMCTL_SHADOW_OP_ENABLE_LOGDIRTY,
@@ -1588,7 +1611,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 goto out;
             }
         }
-		//pthread_mutex_unlock(&qos_pause_mutex);
 
         /* Enable qemu-dm logging dirty pages to xen */
         if ( hvm && callbacks->switch_qemu_logdirty(dom, 1, callbacks->data) )
@@ -1659,10 +1681,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 	free(pfn_batch);
 	free(pfn_err);
 	free(pfn_type);
-
-    /*memset(pfn_type, 0,
-           ROUNDUP(MAX_BATCH_SIZE * sizeof(*pfn_type), PAGE_SHIFT));
-		   */
 
     /* Setup the mfn_to_pfn table mapping */
     if ( !(ctx->live_m2p = xc_map_m2p(xch, ctx->max_mfn, PROT_READ, &ctx->m2p_mfn0)) )
@@ -1737,6 +1755,17 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
     /* Now write out each data page, canonicalising page tables as we go... */
 	hprintf("Before Save Loop\n");
 	gettimeofday(&except_last_time, NULL);
+
+    /*
+     * classicsong add these comments
+     * In the main migration iteration loops, 
+     * the main process acts as the memory task producer and 
+     * the slave threads acts as task consumers
+     *
+     * Each task contains 2 MBytes memory to be processed and sent to the destination
+     * At the end of each iteration, all slaves will wait for the main process to 
+     * create new tasks in the next iteration.
+     */
     for ( ; ; )
     {
         unsigned int N, batch;
@@ -1773,11 +1802,9 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             {
                 /* Slightly wasteful to peek the whole array every time,
                    but this is fast enough for the moment. */
-				//pthread_mutex_lock(&qos_pause_mutex);
                 frc = xc_shadow_control(
                     xch, dom, XEN_DOMCTL_SHADOW_OP_PEEK, HYPERCALL_BUFFER(to_skip),
                     dinfo->p2m_size, NULL, 0, NULL);
-				//pthread_mutex_unlock(&qos_pause_mutex);
                 if ( frc != dinfo->p2m_size )
                 {
                     ERROR("Error peeking shadow bitmap");
@@ -1785,7 +1812,6 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
                 }
             }
 
-			//fprintf(stderr, "Before get pfn_type\n");
             /* load pfn_type[] with the mfn of all the pages we're doing in
                this batch. */
             for  ( batch = 0;
@@ -1885,31 +1911,12 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
             if ( batch == 0 )
                 goto skip; /* vanishingly unlikely... */
 
-#if 0
-			gettimeofday(&map_page_time, NULL);
-            region_base = xc_map_foreign_bulk(
-                xch, dom, PROT_READ, pfn_type, pfn_err, batch);
-			gettimeofday(&map_page_time_end, NULL);
-			m_page += time_between(map_page_time, map_page_time_end);
-            if ( region_base == NULL )
-            {
-                PERROR("map batch failed");
-                goto out;
-            }
-			//hprintf("region_base is %p\n", region_base);
-
-            /* Get page types */
-            if ( xc_get_pfn_type_batch(xch, dom, batch, pfn_type) )
-            {
-                PERROR("get_pfn_type_batch failed");
-                goto out;
-            }
-#endif
-
 			prof_cnt.send_page_cnt += batch;
 
-			//hprintf("Befere Page Equeue\n");
-			/* batch, pfn_batch */
+			/* batch, pfn_batch 
+             * the send_argu_t contains the basic informance of a memory task
+             * containing 2 MByte memory by default
+             */
 			{
 				send_argu_t *argu = (send_argu_t*)malloc(sizeof(send_argu_t));
 				argu->batch = batch;
@@ -1930,157 +1937,10 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 				argu->dom = dom;
 				send_argu_enqueue(argu);
 			}
-			//hprintf("After Page Equeue\n");
-#if 0
-            for ( run = j = 0; j < batch; j++ )
-            {
-                unsigned long gmfn = pfn_batch[j];
-
-                if ( !hvm )
-                    gmfn = pfn_to_mfn(gmfn);
-
-                if ( pfn_err[j] )
-                {
-                    if ( pfn_type[j] == XEN_DOMCTL_PFINFO_XTAB )
-                        continue;
-                    DPRINTF("map fail: page %i mfn %08lx err %d\n",
-                            j, gmfn, pfn_err[j]);
-                    pfn_type[j] = XEN_DOMCTL_PFINFO_XTAB;
-                    continue;
-                }
-
-                if ( pfn_type[j] == XEN_DOMCTL_PFINFO_XTAB )
-                {
-                    DPRINTF("type fail: page %i mfn %08lx\n", j, gmfn);
-                    continue;
-                }
-
-                /* canonicalise mfn->pfn */
-                pfn_type[j] |= pfn_batch[j];
-                ++run;
-
-                if ( debug )
-                {
-                    if ( hvm )
-                        DPRINTF("%d pfn=%08lx sum=%08lx\n",
-                                iter,
-                                pfn_type[j],
-                                csum_page(region_base + (PAGE_SIZE*j)));
-                    else
-                        DPRINTF("%d pfn= %08lx mfn= %08lx [mfn]= %08lx"
-                                " sum= %08lx\n",
-                                iter,
-                                pfn_type[j],
-                                gmfn,
-                                mfn_to_pfn(gmfn),
-                                csum_page(region_base + (PAGE_SIZE*j)));
-                }
-            }
-
-            if ( !run )
-            {
-                munmap(region_base, batch*PAGE_SIZE);
-                continue; /* bail on this batch: no valid pages */
-            }
-
-            if ( wrexact(io_fd, &batch, sizeof(unsigned int)) )
-            {
-                PERROR("Error when writing to state file (2)");
-                goto out;
-            }
-
-            if ( sizeof(unsigned long) < sizeof(*pfn_type) )
-                for ( j = 0; j < batch; j++ )
-                    ((unsigned long *)pfn_type)[j] = pfn_type[j];
-            if ( wrexact(io_fd, pfn_type, sizeof(unsigned long)*batch) )
-            {
-                PERROR("Error when writing to state file (3)");
-                goto out;
-            }
-            if ( sizeof(unsigned long) < sizeof(*pfn_type) )
-                while ( --j >= 0 )
-                    pfn_type[j] = ((unsigned long *)pfn_type)[j];
-
-            /* entering this loop, pfn_type is now in pfns (Not mfns) */
-            run = 0;
-            for ( j = 0; j < batch; j++ )
-            {
-                unsigned long pfn, pagetype;
-                void *spage = (char *)region_base + (PAGE_SIZE*j);
-
-                pfn      = pfn_type[j] & ~XEN_DOMCTL_PFINFO_LTAB_MASK;
-                pagetype = pfn_type[j] &  XEN_DOMCTL_PFINFO_LTAB_MASK;
-
-                if ( pagetype != 0 )
-                {
-                    /* If the page is not a normal data page, write out any
-                       run of pages we may have previously acumulated */
-                    if ( run )
-                    {
-                        if ( ratewrite(io_fd, live, 
-                                       (char*)region_base+(PAGE_SIZE*(j-run)), 
-                                       PAGE_SIZE*run) != PAGE_SIZE*run )
-                        {
-                            PERROR("Error when writing to state file (4a)"
-                                  " (errno %d)", errno);
-                            goto out;
-                        }                        
-                        run = 0;
-                    }
-                }
-
-                /* skip pages that aren't present */
-                if ( pagetype == XEN_DOMCTL_PFINFO_XTAB )
-                    continue;
-
-                pagetype &= XEN_DOMCTL_PFINFO_LTABTYPE_MASK;
-
-                if ( (pagetype >= XEN_DOMCTL_PFINFO_L1TAB) &&
-                     (pagetype <= XEN_DOMCTL_PFINFO_L4TAB) )
-                {
-                    /* We have a pagetable page: need to rewrite it. */
-                    race = 
-                        canonicalize_pagetable(ctx, pagetype, pfn, spage, page); 
-
-                    if ( race && !live )
-                    {
-                        ERROR("Fatal PT race (pfn %lx, type %08lx)", pfn,
-                              pagetype);
-                        goto out;
-                    }
-
-                    if ( ratewrite(io_fd, live, page, PAGE_SIZE) != PAGE_SIZE )
-                    {
-                        PERROR("Error when writing to state file (4b)"
-                              " (errno %d)", errno);
-                        goto out;
-                    }
-                }
-                else
-                {
-                    /* We have a normal page: accumulate it for writing. */
-                    run++;
-                }
-            } /* end of the write out for this batch */
-
-            if ( run )
-            {
-                /* write out the last accumulated run of pages */
-                if ( ratewrite(io_fd, live, 
-                               (char*)region_base+(PAGE_SIZE*(j-run)), 
-                               PAGE_SIZE*run) != PAGE_SIZE*run )
-                {
-                    PERROR("Error when writing to state file (4c)"
-                          " (errno %d)", errno);
-                    goto out;
-                }                        
-            }
-#endif
 
             sent_this_iter += batch;
 
         } /* end of this while loop for this iteration */
-		//fprintf(stderr, "Send: Iteration End\n");
 
 		/* Every Iteration not skipped will pass Here */
 		sender_iter_banner.cnt = 1;
@@ -2195,6 +2055,10 @@ int xc_domain_save(xc_interface *xch, int io_fd, uint32_t dom, uint32_t max_iter
 
 	hprintf("Master After Barrier\n");
 
+    /*
+     * The CPU states and rest device states are transferred 
+     * by the main migration process in the last iteration.
+     */
     {
         struct {
             int id;

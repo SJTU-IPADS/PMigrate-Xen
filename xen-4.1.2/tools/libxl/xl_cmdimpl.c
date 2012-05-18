@@ -48,7 +48,9 @@
 #include "qos.h"
 
 /* 
- * Roger 
+ * Roger/classicsong 
+ * debug printf
+ * progress hint printf
  */
 #define dprintf(_f, _a...) \
     if (mc_migrate_debug == 1) fprintf(stderr, _f, ## _a)
@@ -2634,7 +2636,6 @@ static void migrate_domain(const char *domain_spec, char *rune,
     child = libxl_fork(&ctx);
     if (child==-1) exit(1);
 
-	hprintf("After fork %d\n", child);
     if (!child) {
         dup2(sendpipe[0], 0);
         dup2(recvpipe[1], 1);
@@ -2674,7 +2675,12 @@ static void migrate_domain(const char *domain_spec, char *rune,
 		pids = (pthread_t*) malloc(sizeof(pthread_t) * slave_cnt);
 
 		send_argu_head_cnt = 0;
-		init_banner(&sender_iter_banner, slave_cnt + 1); // Slave + Master
+        /*
+         * classicsong
+         * barrier for slave and master
+         * one memory master and n slaves
+         */
+		init_banner(&sender_iter_banner, slave_cnt + 1);
 		for (i = 0; i < dest_cnt; i++) {
 			for (j = 0; j < port_cnt; j++) {
 				send_slave_argu_t *argu = malloc(sizeof(send_slave_argu_t));
@@ -2709,7 +2715,6 @@ static void migrate_domain(const char *domain_spec, char *rune,
             goto failed_resume;
     }
 
-    //fprintf(stderr, "migration sender: Transfer complete.\n");
     // Should only be printed when debugging as it's a bit messy with
     // progress indication.
 
