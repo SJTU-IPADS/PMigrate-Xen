@@ -2,4 +2,31 @@ Parallel Xen Migration Version 1.0.0
 (Require Range-Lock Linux https://github.com/classicsong/Range-Lock-Linux)
 
 The default working branch is recv-opti-full-para.
-This branch should work with another Linux kernel project Range-Lock Linux ,https://github.com/classicsong/Range-Lock-Linux ,which greatly improve the parallelism of our parallel migration tool. 
+This branch should work with another Linux kernel project Range-Lock Linux ,https://github.com/classicsong/Range-Lock-Linux ,which greatly improve the scalability of our parallel migration tool. 
+
+
+HOTO use:
+The simple parallel migration commands is as follows:
+xl migrate -m <dom_id> <config_file>
+You should provide which domain to migration and a config_file.
+A config_file template is as follows:
+d_ip = 10.131.201.11:3333:3334,  10.131.201.12:3333:3334
+h_ip = 10.131.201.21:3333:3334,  10.131.201.22:3333:3334
+SSL_type = 1
+ip_num = 2
+slave_num = 4
+max_iter = 30
+max_factor = 3
+max_downtime = 1000
+is_qos = 0
+nics = eth0, eth1
+
+The FIRST TWO lines shows the destination ip:port pair in receving migration data (2 ips, four ports are used in the example) and the host ip:port pair in sending the data
+The THIRD line shows whether use SSL connection for migration. The vanilla Xen use ssh connection to transfer data due to security concerns. We also provide SSL conncetions in migration.
+The FORTH line shows how many ips are used.
+The FIFTH line shows how many data sending slaves are used. (must match the number of ip:port pairs in the FIRST line)
+The SIXTH line shows the maximum iterations the migration process will take. 
+The SEVENTH line shows the maximum number of memory data to be sent in the migration (when it is reached, the migration process will force the migration)
+The EIGHTH line shows the maximum_domtime the migration can endure, when the estimiated downtime is below max_downtime, the migration process will enter the last iteration (1000ms in the example)
+The NINTH line shows whether use network qos support in the migration. The network qos support is added in branch new-para.
+The TENTH line shows which nics are used. Our system will monitor the network bandwidth of the specified NICs
