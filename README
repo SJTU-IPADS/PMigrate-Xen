@@ -1,8 +1,10 @@
-Parallel Xen Migration Version 1.0.0
+Parallel Xen Migration Version 1.0.0 based on Xen 4.1.2 and Linux 3.2.6
 (Require Range-Lock Linux https://github.com/classicsong/Range-Lock-Linux)
 
 The default working branch is parallel-xen-no-qos.
-This branch should work with another Linux kernel project Range-Lock Linux ,https://github.com/classicsong/Range-Lock-Linux ,which greatly improve the scalability of our parallel migration tool. 
+The parallel VM save operation branch is checkpoint.
+
+These branches should work with another Linux kernel project Range-Lock Linux ,https://github.com/classicsong/Range-Lock-Linux ,which greatly improve the scalability of our parallel migration tool. 
 
 
 HOTO use:
